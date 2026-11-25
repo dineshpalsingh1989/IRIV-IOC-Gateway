@@ -1,6 +1,8 @@
 #pragma once
 #include <Arduino.h>
 #include <W5500lwIP.h>
+#include <Wire.h>
+#include "IRIVIOCTime.h"
 
 namespace irivioc {
 // Static address set. useStatic false means DHCP. dns 0.0.0.0 means "use the gateway".
@@ -57,5 +59,57 @@ public:
     Wiznet5500lwIP& driver() { return driver_; }
 private:
     Wiznet5500lwIP driver_;
+};
+
+// PCF85063A real-time clock (IRIV IOC: I2C0 on GP16/GP17, address 0x51, CR2032 backup).
+// The chip cannot report the battery voltage. Its oscillator-stop flag tells you the clock
+// stopped while unpowered (battery flat or missing), so the time it holds is not valid.
+// Call wire.begin() first. Times are UTC Unix seconds.
+class Rtc {
+public:
+    enum class State : uint8_t { Missing, Lost, Ok };
+    explicit Rtc(TwoWire& wire = Wire, uint8_t address = 0x51) : wire_(wire), address_(address) {}
+
+    // Missing: the chip did not answer. Lost: stopped since it was last set (or never set),
+    // `unixTime` is then 0. Ok: `unixTime` holds the time.
+    State read(uint32_t& unixTime) {
+        unixTime = 0;
+        uint8_t r[7]; // seconds, minutes, hours, days, weekdays, months, years (BCD)
+        wire_.beginTransmission(address_);
+        wire_.write(uint8_t(0x04));
+        if (wire_.endTransmission(false) != 0 || wire_.requestFrom(address_, uint8_t(7)) != 7) return State::Missing;
+        for (uint8_t& b : r) b = uint8_t(wire_.read());
+        if (r[0] & 0x80) return State::Lost;
+        DateTime t;
+        t.second = fromBcd(r[0] & 0x7F);
+        t.minute = fromBcd(r[1] & 0x7F);
+        t.hour = fromBcd(r[2] & 0x3F); // 24-hour mode, the chip's reset default
+        t.day = fromBcd(r[3] & 0x3F);
+        t.month = fromBcd(r[5] & 0x1F);
+        t.year = uint16_t(2000 + fromBcd(r[6]));
+        if (!validDate(t)) return State::Lost;
+        unixTime = toUnix(t);
+        return State::Ok;
+    }
+
+    // Sets the clock and clears the oscillator-stop flag. False outside 2000-2099 or on a bus error.
+    bool write(uint32_t unixTime) {
+        if (unixTime < RtcFirstUnix || unixTime >= RtcEndUnix) return false;
+        const DateTime t = fromUnix(unixTime);
+        wire_.beginTransmission(address_);
+        wire_.write(uint8_t(0x04));
+        wire_.write(toBcd(t.second)); // bit 7 = 0 clears the oscillator-stop flag
+        wire_.write(toBcd(t.minute));
+        wire_.write(toBcd(t.hour));
+        wire_.write(toBcd(t.day));
+        wire_.write(weekday(unixTime));
+        wire_.write(toBcd(t.month));
+        wire_.write(toBcd(uint8_t(t.year - 2000)));
+        return wire_.endTransmission() == 0;
+    }
+
+private:
+    TwoWire& wire_;
+    uint8_t address_;
 };
 }

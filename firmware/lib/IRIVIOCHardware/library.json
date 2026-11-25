@@ -1,6 +1,6 @@
 {
   "name": "IRIVIOCHardware",
-  "version": "0.2.0-alpha.1",
+  "version": "0.3.0-alpha.1",
   "description": "Configurable W5500 Ethernet and bounded LittleFS settings for Arduino-Pico IOC applications.",
   "license": "MIT",
   "frameworks": ["arduino"],

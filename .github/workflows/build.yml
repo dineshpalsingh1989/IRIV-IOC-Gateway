@@ -32,7 +32,7 @@ jobs:
       - name: Dashboard and firmware use the same Modbus map
         run: python firmware/tools/check_register_map.py
 
-      - name: Library tests (IRIVModbus, IRIVIOCIo)
+      - name: Library tests (IRIVModbus, IRIVIOCIo, IRIVIOCHardware)
         run: python firmware/tools/run_native_tests.py
 
       - name: Dashboard syntax

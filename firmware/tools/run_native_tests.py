@@ -14,6 +14,7 @@ ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "lib")
 SUITES = [
     ("IRIVModbus", ["tests/core_tests.cpp", "src/IRIVModbusCore.cpp"]),
     ("IRIVIOCIo", ["tests/logic_tests.cpp"]),
+    ("IRIVIOCHardware", ["tests/time_tests.cpp"]),
 ]
 
 

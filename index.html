@@ -68,7 +68,7 @@
 
     <main class="main" id="main" tabindex="-1">
       <header class="topbar">
-        <div class="crumb">Devices <span aria-hidden="true">/</span> <b>IRIV IOC</b></div>
+        <div class="crumb">Devices <span aria-hidden="true">/</span> <b>IRIV IOC</b> <span class="tag" id="top-version" hidden></span></div>
         <span class="mode-pill"><i aria-hidden="true"></i> Preview · simulated data</span>
       </header>
 
@@ -344,7 +344,7 @@
             <div class="step-head"><span class="step-num">1</span><div><h2>Install the firmware</h2><p id="inst-fw-info">Looking for the latest firmware…</p></div></div>
             <div class="step-body">
               <div class="step-text">
-                <p><b>Put the controller in install mode.</b> If it already runs this gateway (or any Arduino firmware), click the button. Otherwise do it by hand: hold <b>BOOT</b>, press and release <b>RESET</b>, then release BOOT. Both are pinholes on the front: use a paperclip.</p>
+                <p><b>Put the controller in install mode.</b> If it already runs this gateway (or any Arduino firmware), click the button. Otherwise do it by hand: hold <b>BOOT</b>, press and release <b>RESET</b>, then release BOOT. Both are pinholes on the front: use a paperclip. A new or empty controller is already in install mode when you plug it in: it shows up as the RP2350 drive, not as a USB port.</p>
                 <div class="btn-row">
                   <button type="button" class="button button-secondary" id="inst-bootloader"><svg class="i" aria-hidden="true"><use href="#i-usb"/></svg>Put in install mode</button>
                 </div>

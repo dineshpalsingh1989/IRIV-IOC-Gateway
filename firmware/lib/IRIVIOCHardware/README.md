@@ -13,3 +13,7 @@ See the sibling [secure MQTT example](../W5500SecureMqtt/examples/IRIVSecurePubl
 ## 0.2.0-alpha.1
 
 Adds `begin(hostname, irivioc::Address)` for a static IP (DHCP when `useStatic` is false), `parseIPv4()` for strict dotted IPv4 text, `linkUp()` and `driver()` for direct access to the Arduino-Pico `Wiznet5500lwIP` interface.
+
+## 0.3.0-alpha.1
+
+Adds `irivioc::Rtc` for the board's PCF85063A (I2C0, 0x51): `read(unixTime)` returns `Ok`, `Lost` (oscillator stopped while unpowered: backup battery flat or missing, so the time is not valid) or `Missing`; `write(unixTime)` sets it and clears the flag. The chip cannot report the battery voltage. Date math lives in `IRIVIOCTime.h` and is tested on a PC (`tests/time_tests.cpp`).

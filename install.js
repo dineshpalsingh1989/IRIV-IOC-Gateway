@@ -1,7 +1,7 @@
 // Browser installer for the IRIV IOC gateway (Install page).
 // Firmware: put the RP2350 in install mode, then write the .uf2 onto its USB drive.
 // Settings: send ioc_config.json over USB (Web Serial) using the firmware's line protocol:
-//   HELLO | STATUS | CONFIG <bytes> + JSON | REBOOT | BOOTLOADER  ->  "@IOC {json}" replies.
+//   HELLO | STATUS | CONFIG <bytes> + JSON | TIME <unix> | REBOOT | BOOTLOADER  ->  "@IOC {json}" replies.
 // Uses app.js globals: $, icon, escapeHtml, toast, config, points, buildConfigFile, num.
 
 const FIRMWARE_DIR = 'firmware/';
@@ -11,7 +11,7 @@ let manifest = null;   // firmware/manifest.json: version + one build per proces
 let customFile = null; // { name, bytes } picked by the user
 let link = null;       // open IocLink
 let statusTimer = null;
-const detected = {};   // what we learned about the connected device: usb, drive, hello
+const detected = {};   // what we learned about the connected device: usb, drive, hello, other (non-gateway firmware)
 
 // Chip a .uf2 is built for, by its UF2 family ID. The bootloader ignores files for another chip.
 const UF2_FAMILIES = { 0xe48bff56: 'RP2040', 0xe48bff59: 'RP2350', 0xe48bff5a: 'RP2350', 0xe48bff5b: 'RP2350' };
@@ -26,6 +26,8 @@ const USB_VENDORS = {
   0x2341: { name: 'Arduino' }
 };
 const hex4 = n => n.toString(16).toUpperCase().padStart(4, '0');
+// Compares "major.minor.patch" texts: negative when a is older than b.
+const cmpVersion = (a, b) => { const x = String(a).split('.').map(Number), y = String(b).split('.').map(Number); for (let i = 0; i < 3; i++) if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) - (y[i] || 0); return 0; };
 
 function usbInfo(port) {
   const { usbVendorId: vid, usbProductId: pid } = port.getInfo?.() || {};
@@ -54,15 +56,42 @@ function buildFor(chip) {
   return manifest?.builds?.find(b => b.chip === chip) || null;
 }
 
+// Installed gateway version against the one this page installs.
+function installedRow(version) {
+  const latest = manifest?.version, v = escapeHtml(version), diff = latest ? cmpVersion(version, latest) : 0;
+  if (!latest || diff === 0) return [`IRIV IOC Gateway ${v}${latest ? ' · up to date' : ''}`, 'ok'];
+  return diff < 0 ? [`IRIV IOC Gateway ${v} · <b>update available: ${escapeHtml(latest)}</b> (step 1)`, 'bad'] : [`IRIV IOC Gateway ${v} · newer than this installer (${escapeHtml(latest)})`, 'ok'];
+}
+
+function clockText(rtc) {
+  if (rtc.state === 'missing') return 'RTC chip not answering';
+  if (rtc.state === 'lost') return 'Time lost: the clock stopped while unpowered (CR2032 flat or missing, or never set)';
+  return `${new Date(rtc.time * 1000).toLocaleString()}${rtc.synced ? ` · set from this computer${rtc.wasLost ? ': it had lost its time, check the CR2032' : ''}` : ''}`;
+}
+
+function renderVersion() {
+  const tag = $('#top-version'), device = detected.hello?.version, latest = manifest?.version;
+  tag.hidden = !device && !latest;
+  tag.textContent = device ? `controller v${device}${latest && cmpVersion(device, latest) < 0 ? ` · v${latest} available` : ''}` : `firmware v${latest}`;
+  tag.title = latest ? `This page installs firmware ${latest} (commit ${manifest.commit}, built ${manifest.built.slice(0, 10)})` : '';
+}
+
 function renderDetected() {
   const rows = [];
-  const { usb, drive, hello } = detected;
+  const { usb, drive, hello, other } = detected;
   if (usb) rows.push(['USB', `${escapeHtml(usb.name)} <code>${hex4(usb.vid)}:${hex4(usb.pid)}</code>`, usb.rp ? 'ok' : 'bad']);
   if (drive) rows.push(['Install drive', `${escapeHtml(drive.model || 'unknown model')} <small class="muted">Board-ID ${escapeHtml(drive.boardId || '?')}</small>`, drive.chip ? 'ok' : 'bad']);
   if (hello) {
     const match = hello.chip === hello.builtFor;
     rows.push(['Processor', `${escapeHtml(hello.chip || '?')}${hello.chipRevision !== undefined ? ` <small class="muted">revision ${hello.chipRevision}</small>` : ''}`, match ? 'ok' : 'bad']);
-    rows.push(['Board', `${escapeHtml(hello.board || '?')} <small class="muted">firmware ${escapeHtml(hello.version)} · ${escapeHtml(hello.host)}</small>`, 'ok']);
+    rows.push(['Board', `${escapeHtml(hello.board || '?')} <small class="muted">${escapeHtml(hello.host)}</small>`, 'ok']);
+    rows.push(['Installed', ...installedRow(hello.version)]);
+    rows.push(['Settings', hello.config ? 'Saved on the controller' : 'None yet: running on defaults (send them in step 2)', hello.config ? 'ok' : 'bad']);
+    if (hello.rtc) rows.push(['Clock', escapeHtml(clockText(hello.rtc)), hello.rtc.state === 'ok' && !hello.rtc.wasLost ? 'ok' : 'bad']);
+  } else if (other) {
+    rows.push(['Installed', `Other firmware: ${escapeHtml(other)}. Install the gateway in step 1.`, 'bad']);
+  } else if (drive) {
+    rows.push(['Installed', 'Unknown: the controller is in install mode (a new or empty controller always starts this way)', 'ok']);
   }
   const chip = hello?.chip?.replace(/[AB]$/, '') || drive?.chip;
   const build = chip && buildFor(chip);
@@ -73,7 +102,7 @@ function renderDetected() {
 
 // ---------- USB serial link ----------
 class IocLink {
-  constructor(port) { this.port = port; this.waiters = []; this.buffer = ''; }
+  constructor(port) { this.port = port; this.waiters = []; this.buffer = ''; this.seen = ''; }
 
   async open() {
     await this.port.open({ baudRate: 115200 });
@@ -103,6 +132,7 @@ class IocLink {
 
   onLine(line) {
     logLine(line);
+    this.seen = (this.seen + line + '\n').slice(-2000); // to recognise other firmware by its banner
     if (!line.startsWith('@IOC ')) return;
     let msg;
     try { msg = JSON.parse(line.slice(5)); } catch { return; }
@@ -167,6 +197,7 @@ async function loadFirmwareInfo() {
     manifest.builds ||= [{ chip: 'RP2350', variant: 'RP2350A', board: manifest.board, file: manifest.file, size: manifest.size, sha256: manifest.sha256 }];
     const main = manifest.builds[0];
     $('#inst-download').href = FIRMWARE_DIR + main.file;
+    renderVersion();
     $('#inst-fw-info').innerHTML = `Version <b>${escapeHtml(manifest.version)}</b> for ${manifest.builds.map(b => `<b>${escapeHtml(b.boardName || b.board)}</b> (${escapeHtml(b.variant || b.chip)})`).join(', ')} · ${kb(main.size)} · built ${escapeHtml(manifest.built.slice(0, 10))} · SHA-256 <code title="${escapeHtml(main.sha256)}">${escapeHtml(main.sha256.slice(0, 12))}…</code>`;
   } catch {
     manifest = null;
@@ -210,7 +241,9 @@ async function enterInstallMode() {
   const tryLink = new IocLink(port);
   try {
     await tryLink.open();
-    await tryLink.request('HELLO', ['hello'], 1500);
+    detected.hello = await tryLink.request('HELLO', ['hello'], 1500);
+    renderDetected();
+    renderVersion();
     await tryLink.send('BOOTLOADER');
     await wait(200);
     await tryLink.close();
@@ -266,9 +299,23 @@ async function connect(port) {
   detected.usb = usbInfo(port);
   link = new IocLink(port);
   await link.open();
-  const hello = await link.request('HELLO', ['hello'], 2500);
+  let hello;
+  try {
+    hello = await link.request('HELLO', ['hello'], 2500);
+  } catch {
+    // Something answers on USB, but not our gateway: name it if its banner says what it is.
+    detected.hello = null;
+    detected.other = /CircuitPython/i.test(link.seen) ? 'CircuitPython' : /MicroPython/i.test(link.seen) ? 'MicroPython' : 'not the IRIV IOC Gateway (for example the factory firmware)';
+    renderDetected();
+    renderVersion();
+    await disconnect();
+    throw new Error(`This controller runs ${detected.other}. Install the gateway firmware in step 1 first.`);
+  }
   detected.hello = hello;
+  detected.other = null;
+  await syncClock(hello);
   renderDetected();
+  renderVersion();
   setDevice(`${hello.host} · ${hello.chip || 'chip ?'} · firmware ${hello.version}`, true);
   logLine(`Connected to ${hello.host} (${hello.chip}, board ${hello.board})`);
   if (hello.chip && hello.builtFor && hello.chip !== hello.builtFor) {
@@ -276,6 +323,20 @@ async function connect(port) {
   }
   refreshStatus();
   statusTimer = setInterval(refreshStatus, 3000);
+}
+
+// Sets the controller's RTC from this computer when it lost its time or is more than 2 s off.
+async function syncClock(hello) {
+  const rtc = hello.rtc; // absent on firmware before 0.3.0
+  if (!rtc || rtc.state === 'missing') return;
+  const now = Math.round(Date.now() / 1000);
+  if (rtc.state === 'ok' && Math.abs(rtc.time - now) <= 2) return;
+  try {
+    const reply = await link.request(`TIME ${now}`, ['time'], 2500);
+    hello.rtc = { ...reply.rtc, synced: true, wasLost: rtc.state === 'lost' };
+    logLine(`Clock set from this computer (was ${rtc.state === 'lost' ? 'lost' : new Date(rtc.time * 1000).toLocaleString()})`);
+    if (rtc.state === 'lost') toast('The controller had lost its time (CR2032 flat or missing, or never set). Clock set from this computer.');
+  } catch (e) { logLine(`Could not set the clock: ${e.message}`); }
 }
 
 async function disconnect() {
@@ -321,7 +382,8 @@ async function refreshStatus() {
     ['Ethernet', s.online ? `${yes(true, 'Online', '')} ${escapeHtml(s.ip)} ${s.dhcp ? '(DHCP)' : '(static)'}` : yes(false, '', s.link ? 'Cable in, no address yet' : 'No cable')],
     ['Modbus TCP', s.modbus.enabled ? `port ${s.modbus.port} · ${s.modbus.clients} client${s.modbus.clients === 1 ? '' : 's'} · ${s.modbus.requests} requests` : 'off'],
     ['MQTT', s.mqtt.enabled ? `${yes(s.mqtt.connected, 'Connected', 'Not connected')} ${escapeHtml(s.mqtt.host)}` : 'off'],
-    ['Running for', `${Math.floor(s.uptime / 60)} min ${s.uptime % 60} s · firmware ${escapeHtml(s.version)}`]
+    ['Running for', `${Math.floor(s.uptime / 60)} min ${s.uptime % 60} s · firmware ${escapeHtml(s.version)}`],
+    ...(s.rtc ? [['Clock', escapeHtml(clockText(s.rtc))]] : [])
   ];
   const pts = s.rs485.length ? `<table class="channel-table mini"><thead><tr><th>Point</th><th>Value</th><th>Errors</th></tr></thead><tbody>${s.rs485.map(p => `<tr><td>${escapeHtml(p.id)}</td><td>${p.value === null ? '<span class="badge danger">no reply</span>' : num(p.value)}</td><td>${p.errors}</td></tr>`).join('')}</tbody></table>` : '';
   $('#inst-status').innerHTML = `<dl class="kv">${rows.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('')}</dl>${pts}`;

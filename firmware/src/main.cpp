@@ -24,6 +24,7 @@ using irivmb::Area;
 static GatewayConfig cfg;  // global: about 25 KB, too big for a stack
 static IRIVIOCIo io;
 static irivioc::Ethernet ethernet(PIN_W5500_CS, SPI, PIN_W5500_INT);
+static irivioc::Rtc rtc; // PCF85063A on Wire (GP16/GP17)
 static char hostname[32];
 static volatile bool ready = false; // core 1 waits for setup() to finish
 
@@ -216,7 +217,7 @@ static void serviceMqtt(uint32_t now) {
 
 // ---------------------------------------------------------------------------------------------
 // USB setup protocol, used by the browser installer over Web Serial.
-// In:  HELLO | STATUS | CONFIG <bytes> (then exactly that many bytes of JSON) | REBOOT | BOOTLOADER
+// In:  HELLO | STATUS | CONFIG <bytes> (then exactly that many bytes of JSON) | TIME <unix UTC> | REBOOT | BOOTLOADER
 // Out: one line per reply, "@IOC " + JSON, so replies stand apart from log messages.
 
 static const char* ConfigPath = "/ioc_config.json";
@@ -251,6 +252,24 @@ static void addChipInfo(JsonDocument& d) {
     d["uid"] = id;
 }
 
+// RTC for the installer: "ok" with the time, "lost" (stopped while unpowered: CR2032 flat or
+// missing, time not valid) or "missing" (chip not answering).
+static void addRtc(JsonDocument& d) {
+    uint32_t time;
+    const irivioc::Rtc::State state = rtc.read(time);
+    JsonObject o = d.createNestedObject("rtc");
+    o["state"] = state == irivioc::Rtc::State::Ok ? "ok" : state == irivioc::Rtc::State::Lost ? "lost" : "missing";
+    if (state == irivioc::Rtc::State::Ok) o["time"] = time;
+}
+
+static void setClock(uint32_t unixTime) {
+    if (!rtc.write(unixTime)) { replyError("cannot set the clock: time outside 2000-2099 or RTC not answering"); return; }
+    StaticJsonDocument<128> d;
+    d["type"] = "time";
+    addRtc(d);
+    replyJson(d);
+}
+
 static void sendHello() {
     StaticJsonDocument<512> d;
     d["type"] = "hello";
@@ -260,6 +279,7 @@ static void sendHello() {
     d["host"] = hostname;
     d["ip"] = ethernet.localIP().toString();
     d["config"] = LittleFS.exists(ConfigPath);
+    addRtc(d);
     replyJson(d);
 }
 
@@ -273,6 +293,7 @@ static void sendStatus() {
     d["online"] = ethernet.connected();
     d["dhcp"] = !cfg.network.useStatic;
     d["uptime"] = millis() / 1000;
+    addRtc(d);
     JsonObject mb = d.createNestedObject("modbus");
     mb["enabled"] = cfg.modbusEnabled;
     mb["port"] = cfg.modbusPort;
@@ -351,6 +372,7 @@ static void serviceUsbCommands() {
         if (!strcmp(line, "HELLO")) sendHello();
         else if (!strcmp(line, "STATUS")) sendStatus();
         else if (!strncmp(line, "CONFIG ", 7)) receiveConfig(atol(line + 7));
+        else if (!strncmp(line, "TIME ", 5)) setClock(strtoul(line + 5, nullptr, 10));
         else if (!strcmp(line, "REBOOT")) { Serial.flush(); delay(100); rp2040.reboot(); }
         else if (!strcmp(line, "BOOTLOADER")) { Serial.flush(); delay(100); rp2040.rebootToBootloader(); }
         else if (line[0]) replyError("unknown command");
@@ -364,6 +386,11 @@ void setup() {
     Serial.begin(115200);
     io.begin();
     io.led(true);
+    Wire.begin();
+    uint32_t rtcTime;
+    const irivioc::Rtc::State rtcState = rtc.read(rtcTime);
+    if (rtcState == irivioc::Rtc::State::Lost) log("RTC time lost (CR2032 flat or missing): set it from the installer");
+    else if (rtcState == irivioc::Rtc::State::Missing) log("RTC not answering");
 
     char id[2 * PICO_UNIQUE_BOARD_ID_SIZE_BYTES + 1];
     pico_get_unique_board_id_string(id, sizeof(id));
