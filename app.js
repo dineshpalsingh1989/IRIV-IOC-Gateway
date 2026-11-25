@@ -1,5 +1,5 @@
 const STORAGE_KEY = 'fieldnote-iriv-ioc-v1';
-const VIEWS = ['overview', 'channels', 'connections'];
+const VIEWS = ['overview', 'channels', 'connections', 'install'];
 
 // Analog modes. The AN-IN MODE DIP switch must match (datasheet §5.2.3): V = 0–10.56 V, mA = 0–42.58 mA full scale.
 const SIGNAL = {
@@ -554,15 +554,20 @@ document.addEventListener('change', e => {
 });
 
 /* ---------- Export: ioc_config.json for the gateway firmware ---------- */
-function exportConfig() {
-  const { mqtt, ...rest } = config; // exports the saved setup, never the unsaved form
-  // The firmware needs the broker password; it is only included when the user agrees.
-  const includePass = !!mqtt.pass && confirm('Include the MQTT password in ioc_config.json?\n\nThe controller needs it to log in to the broker, but anyone with the file can read it. Choose Cancel to leave it out and add it to the file yourself.');
+// The saved setup (never the unsaved form) as the file the firmware reads. Also sent by the installer.
+function buildConfigFile(includePass) {
+  const { mqtt, ...rest } = config;
   const map = {
     mqtt: owners().filter(c => c.mqtt).map(c => ({ source: c.id, publish: topicOf(c), ...(hasCmd(c) && { subscribe: topicOf(c, 'cmdTopic') }) })),
     modbusTcp: modbusRows().map(r => ({ source: r.source, name: r.name, table: r.table, address: r.address, registers: r.width, plcReference: plcRef(r.table, r.address, r.width), format: r.format }))
   };
-  const data = { format: 'iriv-ioc-gateway-config', version: 4, exportedAt: new Date().toISOString(), ...rest, mqtt: { ...mqtt, pass: includePass ? mqtt.pass : '' }, map };
+  return { format: 'iriv-ioc-gateway-config', version: 4, exportedAt: new Date().toISOString(), ...rest, mqtt: { ...mqtt, pass: includePass ? mqtt.pass : '' }, map };
+}
+function exportConfig() {
+  const { mqtt } = config;
+  // The firmware needs the broker password; it is only included when the user agrees.
+  const includePass = !!mqtt.pass && confirm('Include the MQTT password in ioc_config.json?\n\nThe controller needs it to log in to the broker, but anyone with the file can read it. Choose Cancel to leave it out and add it to the file yourself.');
+  const data = buildConfigFile(includePass);
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
   a.download = 'ioc_config.json'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);

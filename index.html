@@ -40,6 +40,7 @@
       <symbol id="i-volume" viewBox="0 0 24 24"><path d="M11 4.7a.7.7 0 0 0-1.2-.5L6.41 7.59A1.4 1.4 0 0 1 5.42 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.42a1.4 1.4 0 0 1 1 .41l3.38 3.39A.7.7 0 0 0 11 19.3z"/><path d="M16 9a5 5 0 0 1 0 6M19.36 18.36a9 9 0 0 0 0-12.72"/></symbol>
       <symbol id="i-alert" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4M12 17h.01"/></symbol>
       <symbol id="i-plus" viewBox="0 0 24 24"><path d="M5 12h14M12 5v14"/></symbol>
+      <symbol id="i-usb" viewBox="0 0 24 24"><circle cx="10" cy="7" r="1"/><circle cx="4" cy="20" r="1"/><path d="M4.7 19.3 19 5M21 3l-3 1 2 2zM9.26 7.68 5 12l2 5M10 14l5 2 3.5-3.5M18 12l1-1 1 1-1 1z"/></symbol>
       <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></symbol>
     </svg>
 
@@ -55,6 +56,7 @@
         <a class="nav-item" href="#overview" data-view="overview" aria-current="page"><svg class="i" aria-hidden="true"><use href="#i-dashboard"/></svg><span class="nav-text">Overview</span></a>
         <a class="nav-item" href="#channels" data-view="channels"><svg class="i" aria-hidden="true"><use href="#i-channels"/></svg><span class="nav-text">Channels</span><span class="nav-count" aria-label="18 channels">18</span></a>
         <a class="nav-item" href="#connections" data-view="connections"><svg class="i" aria-hidden="true"><use href="#i-network"/></svg><span class="nav-text">Connections</span><span class="nav-dirty" title="Unsaved changes"></span></a>
+        <a class="nav-item" href="#install" data-view="install"><svg class="i" aria-hidden="true"><use href="#i-usb"/></svg><span class="nav-text">Install</span></a>
       </nav>
       <div class="help-card">
         <svg class="i" aria-hidden="true"><use href="#i-book"/></svg>
@@ -80,7 +82,7 @@
           </div>
           <button type="button" class="button button-secondary" data-export><svg class="i" aria-hidden="true"><use href="#i-download"/></svg><span class="btn-text">Export setup</span></button>
         </div>
-        <div class="notice" role="note"><svg class="i notice-icon" aria-hidden="true"><use href="#i-info"/></svg><span><b>Preview mode.</b> Channel values are simulated. Tap inputs and outputs to try your setup, then connect a device service to control real hardware.</span><button type="button" class="notice-close" aria-label="Dismiss notice"><svg class="i" aria-hidden="true"><use href="#i-x"/></svg></button></div>
+        <div class="notice" role="note"><svg class="i notice-icon" aria-hidden="true"><use href="#i-info"/></svg><span><b>Preview mode.</b> Channel values are simulated. Tap inputs and outputs to try your setup, then put it on the controller from the <a href="#install">Install</a> page.</span><button type="button" class="notice-close" aria-label="Dismiss notice"><svg class="i" aria-hidden="true"><use href="#i-x"/></svg></button></div>
 
         <div class="status-strip">
           <div class="device-status"><span class="status-led" aria-hidden="true"></span><span><b>Ready to configure</b><small>Setup is saved in this browser</small></span></div>
@@ -324,6 +326,70 @@
         </section>
       </section>
 
+      <!-- INSTALL -->
+      <section class="page" id="view-install" aria-labelledby="install-title">
+        <div class="page-heading">
+          <div>
+            <div class="eyebrow"><svg class="i i-sm" aria-hidden="true"><use href="#i-usb"/></svg> Install</div>
+            <h1 id="install-title" tabindex="-1">Install on the controller</h1>
+            <p class="subhead">Plug the controller into this computer with USB-C. No tools to install: everything happens in the browser.</p>
+          </div>
+        </div>
+        <div class="notice" role="note" id="inst-browser" hidden><svg class="i notice-icon" aria-hidden="true"><use href="#i-alert"/></svg><span><b>Use Chrome or Edge on a computer.</b> This browser cannot talk to USB devices. You can still download the firmware and copy it to the controller by hand.</span></div>
+
+        <ol class="install-steps">
+          <li class="panel step-card">
+            <div class="step-head"><span class="step-num">1</span><div><h2>Install the firmware</h2><p id="inst-fw-info">Looking for the latest firmware…</p></div></div>
+            <div class="step-body">
+              <div class="step-text">
+                <p><b>Put the controller in install mode.</b> If it already runs this gateway (or any Arduino firmware), click the button. Otherwise do it by hand: hold <b>BOOT</b>, press and release <b>RESET</b>, then release BOOT. Both are pinholes on the front: use a paperclip.</p>
+                <div class="btn-row">
+                  <button type="button" class="button button-secondary" id="inst-bootloader"><svg class="i" aria-hidden="true"><use href="#i-usb"/></svg>Put in install mode</button>
+                </div>
+                <p>A drive called <b>RP2350</b> appears. Copy the firmware onto it: the controller restarts by itself when the copy finishes.</p>
+                <div class="btn-row">
+                  <button type="button" class="button button-dark" id="inst-write"><svg class="i" aria-hidden="true"><use href="#i-download"/></svg>Write firmware to the RP2350 drive</button>
+                  <a class="button button-secondary" id="inst-download" href="firmware/iriv-ioc-gateway.uf2" download><svg class="i" aria-hidden="true"><use href="#i-download"/></svg>Download .uf2</a>
+                </div>
+                <details class="inst-more"><summary>Use a firmware file from this computer</summary><input type="file" id="inst-file" accept=".uf2"><p class="muted" id="inst-file-info"></p></details>
+              </div>
+              <svg class="front-panel" viewBox="0 0 300 150" role="img" aria-label="Front of the controller: BOOT and RESET pinholes next to the USB-C port">
+                <rect x="4" y="4" width="292" height="142" rx="16" fill="#2b3134" stroke="#1d2926" stroke-width="4"/>
+                <rect x="24" y="86" width="46" height="18" rx="9" fill="#cfd8d1" stroke="#1d2926" stroke-width="3"/>
+                <text x="47" y="124" text-anchor="middle" fill="#fff" font-size="12" font-family="Segoe UI,Arial">USB-C</text>
+                <circle cx="118" cy="62" r="9" fill="#111" stroke="#e8833a" stroke-width="4"/>
+                <text x="118" y="40" text-anchor="middle" fill="#fff" font-size="13" font-weight="700" font-family="Segoe UI,Arial">RESET</text>
+                <circle cx="182" cy="62" r="9" fill="#111" stroke="#3fae6a" stroke-width="4"/>
+                <text x="182" y="40" text-anchor="middle" fill="#fff" font-size="13" font-weight="700" font-family="Segoe UI,Arial">BOOT</text>
+                <text x="188" y="104" text-anchor="middle" fill="#f4c84a" font-size="13" font-family="Segoe UI,Arial">1 hold BOOT · 2 tap RESET</text>
+                <text x="188" y="124" text-anchor="middle" fill="#f4c84a" font-size="13" font-family="Segoe UI,Arial">3 release BOOT</text>
+              </svg>
+            </div>
+          </li>
+
+          <li class="panel step-card">
+            <div class="step-head"><span class="step-num">2</span><div><h2>Send your settings</h2><p>Everything you set up in this dashboard, sent over USB.</p></div></div>
+            <div class="step-body single">
+              <ul class="send-summary" id="inst-summary"></ul>
+              <label class="check-field" id="inst-pass-row"><input type="checkbox" id="inst-pass"> Include the MQTT password (it is stored on the controller)</label>
+              <div class="btn-row">
+                <button type="button" class="button button-secondary" id="inst-connect"><svg class="i" aria-hidden="true"><use href="#i-usb"/></svg>Connect over USB</button>
+                <button type="button" class="button button-dark" id="inst-send" disabled><svg class="i" aria-hidden="true"><use href="#i-check"/></svg>Send settings</button>
+                <span class="conn-chip" id="inst-device">Not connected</span>
+              </div>
+            </div>
+          </li>
+
+          <li class="panel step-card">
+            <div class="step-head"><span class="step-num">3</span><div><h2>Check it's running</h2><p>Live status from the controller while it's connected.</p></div></div>
+            <div class="step-body single">
+              <div class="status-grid" id="inst-status"><p class="muted">Connect over USB to see the controller's status.</p></div>
+              <details class="inst-more"><summary>USB log</summary><pre class="usb-log" id="inst-log"></pre></details>
+            </div>
+          </li>
+        </ol>
+      </section>
+
       <footer class="footer"><span>FIELDNOTE · IRIV IOC setup</span><span>Configuration stored in this browser</span></footer>
     </main>
 
@@ -343,5 +409,6 @@
       </form>
     </dialog>
     <script src="app.js"></script>
+    <script src="install.js"></script>
   </body>
 </html>

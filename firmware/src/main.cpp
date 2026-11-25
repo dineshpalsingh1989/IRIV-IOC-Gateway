@@ -2,7 +2,9 @@
 // Core 0: Ethernet, I/O, Modbus TCP server, MQTT. Core 1: RS485 Modbus RTU master polling.
 // Settings come from /ioc_config.json in LittleFS, exported by the dashboard.
 #include <Arduino.h>
+#include <ArduinoJson.h>
 #include <LittleFS.h>
+#include <memory>
 #include <SPI.h>
 #include <WiFi.h>
 #include <pico/mutex.h>
@@ -212,6 +214,132 @@ static void serviceMqtt(uint32_t now) {
 }
 
 // ---------------------------------------------------------------------------------------------
+// USB setup protocol, used by the browser installer over Web Serial.
+// In:  HELLO | STATUS | CONFIG <bytes> (then exactly that many bytes of JSON) | REBOOT | BOOTLOADER
+// Out: one line per reply, "@IOC " + JSON, so replies stand apart from log messages.
+
+static const char* ConfigPath = "/ioc_config.json";
+static const char* UploadPath = "/ioc_config.tmp";
+
+static void replyJson(JsonDocument& doc) {
+    Serial.print("@IOC ");
+    serializeJson(doc, Serial);
+    Serial.println();
+}
+
+static void replyError(const char* message) {
+    StaticJsonDocument<256> d;
+    d["type"] = "error";
+    d["message"] = message;
+    replyJson(d);
+}
+
+static void sendHello() {
+    StaticJsonDocument<384> d;
+    d["type"] = "hello";
+    d["product"] = "iriv-ioc-gateway";
+    d["version"] = GATEWAY_VERSION_TEXT;
+    d["host"] = hostname;
+    d["ip"] = ethernet.localIP().toString();
+    d["config"] = LittleFS.exists(ConfigPath);
+    replyJson(d);
+}
+
+static void sendStatus() {
+    DynamicJsonDocument d(6144);
+    d["type"] = "status";
+    d["version"] = GATEWAY_VERSION_TEXT;
+    d["host"] = hostname;
+    d["ip"] = ethernet.localIP().toString();
+    d["link"] = ethernet.linkUp();
+    d["online"] = ethernet.connected();
+    d["dhcp"] = !cfg.network.useStatic;
+    d["uptime"] = millis() / 1000;
+    JsonObject mb = d.createNestedObject("modbus");
+    mb["enabled"] = cfg.modbusEnabled;
+    mb["port"] = cfg.modbusPort;
+    mb["clients"] = modbus.clientCount();
+    mb["requests"] = modbus.stats().requests;
+    JsonObject mq = d.createNestedObject("mqtt");
+    mq["enabled"] = cfg.mqttEnabled;
+    mq["host"] = cfg.mqttHost;
+    mq["connected"] = mqtt.connected();
+    mq["state"] = mqtt.state();
+    JsonArray points = d.createNestedArray("rs485");
+    mutex_enter_blocking(&pointLock);
+    for (uint8_t p = 0; p < cfg.pointCount; ++p) {
+        JsonObject o = points.createNestedObject();
+        o["id"] = cfg.points[p].id;
+        if (isnan(pointValues[p].value)) o["value"] = nullptr; // JSON has no NaN
+        else o["value"] = pointValues[p].value;
+        o["errors"] = pointValues[p].errors;
+    }
+    mutex_exit(&pointLock);
+    replyJson(d);
+}
+
+// Streams the upload into a temporary file, checks it with the real loader, then swaps it in
+// and restarts. The working settings stay untouched until the new file has passed the check.
+static void receiveConfig(long size) {
+    if (size <= 0 || size > 65536) { replyError("size must be 1 to 65536 bytes"); return; }
+    File file = LittleFS.open(UploadPath, "w");
+    if (!file) { replyError("cannot write to flash"); return; }
+    uint8_t buffer[256];
+    long received = 0;
+    uint32_t lastByte = millis();
+    while (received < size && millis() - lastByte < 5000) {
+        rp2040.wdt_reset();
+        const int available = Serial.available();
+        if (available <= 0) { delay(1); continue; }
+        const size_t want = size_t(min(long(sizeof(buffer)), min(long(available), size - received)));
+        const size_t got = Serial.readBytes(reinterpret_cast<char*>(buffer), want);
+        if (file.write(buffer, got) != got) break;
+        received += long(got);
+        lastByte = millis();
+    }
+    file.close();
+    if (received != size) { LittleFS.remove(UploadPath); replyError("upload incomplete or flash full"); return; }
+
+    std::unique_ptr<GatewayConfig> check(new GatewayConfig()); // ~25 KB: heap, not stack
+    String warning;
+    if (!loadConfig(UploadPath, *check, warning)) {
+        LittleFS.remove(UploadPath);
+        replyError(warning.c_str());
+        return;
+    }
+    if (!LittleFS.rename(UploadPath, ConfigPath)) { replyError("cannot save settings"); return; } // replaces the old file
+    StaticJsonDocument<384> d;
+    d["type"] = "saved";
+    d["bytes"] = size;
+    if (warning.length()) d["warning"] = warning;
+    replyJson(d);
+    Serial.flush();
+    delay(300);
+    rp2040.reboot(); // start again with the new settings
+}
+
+static void serviceUsbCommands() {
+    static char line[40];
+    static size_t used = 0;
+    while (Serial.available()) {
+        const int c = Serial.read();
+        if (c < 0 || c == '\r') continue;
+        if (c != '\n') {
+            if (used < sizeof(line) - 1) line[used++] = char(c);
+            continue;
+        }
+        line[used] = 0;
+        used = 0;
+        if (!strcmp(line, "HELLO")) sendHello();
+        else if (!strcmp(line, "STATUS")) sendStatus();
+        else if (!strncmp(line, "CONFIG ", 7)) receiveConfig(atol(line + 7));
+        else if (!strcmp(line, "REBOOT")) { Serial.flush(); delay(100); rp2040.reboot(); }
+        else if (!strcmp(line, "BOOTLOADER")) { Serial.flush(); delay(100); rp2040.rebootToBootloader(); }
+        else if (line[0]) replyError("unknown command");
+    }
+}
+
+// ---------------------------------------------------------------------------------------------
 // Core 0
 
 void setup() {
@@ -225,7 +353,7 @@ void setup() {
 
     String error;
     if (!LittleFS.begin()) error = "LittleFS mount failed, using defaults"; // never formats
-    else loadConfig("/ioc_config.json", cfg, error);
+    else loadConfig(ConfigPath, cfg, error);
     if (error.length()) log(error.c_str());
 
     // Hold USER at power-up for a fixed address, for a laptop plugged in directly.
@@ -273,6 +401,7 @@ void loop() {
     updateIo(now);
     modbus.poll();
     serviceMqtt(now);
+    serviceUsbCommands();
     if (int32_t(now - nextBlink) >= 0) { // blinking USR LED = loop alive, as on Cytron's firmware
         nextBlink = now + 500;
         static bool led = false;

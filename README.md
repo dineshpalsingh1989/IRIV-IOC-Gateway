@@ -4,12 +4,22 @@
 
 <p align="center"><b>Turn a Cytron IRIV IO Controller into a LAN gateway in an afternoon.</b><br>
 Every input, output and RS485 device value, on <b>Modbus TCP</b> and <b>MQTT</b> at the same time.<br>
-Set it up in a friendly browser dashboard, upload, done.</p>
+Set it up in a friendly browser dashboard, install from the same page, done.</p>
+
+<p align="center">
+  <a href="https://dineshpalsingh1989.github.io/IRIV-IOC-Gateway/"><b>▶ Try the dashboard live</b></a>
+  &nbsp;·&nbsp;
+  <a href="https://dineshpalsingh1989.github.io/IRIV-IOC-Gateway/#install"><b>⚡ Install from your browser</b></a>
+  &nbsp;·&nbsp;
+  <a href="https://github.com/dineshpalsingh1989/IRIV-IOC-Gateway/releases/latest"><b>⬇ Download firmware</b></a>
+</p>
+
+<p align="center"><a href="https://github.com/dineshpalsingh1989/IRIV-IOC-Gateway/actions/workflows/build.yml"><img src="https://github.com/dineshpalsingh1989/IRIV-IOC-Gateway/actions/workflows/build.yml/badge.svg" alt="Build, test and publish"></a></p>
 
 <p align="center">
   <a href="#-what-can-it-do">What it does</a> ·
   <a href="#-how-it-works">How it works</a> ·
-  <a href="#-quick-start">Quick start</a> ·
+  <a href="#-quick-start-install-from-your-browser">Quick start</a> ·
   <a href="#-our-own-libraries">Libraries</a> ·
   <a href="#-customize-it">Customize</a>
 </p>
@@ -35,8 +45,8 @@ Set it up in a friendly browser dashboard, upload, done.</p>
 <p align="center"><img src="docs/images/how-it-works.svg" alt="Comic strip: 1 wire it, 2 set it up in the dashboard, 3 upload, 4 live on SCADA and MQTT" width="100%"></p>
 
 1. **Wire it.** Sensors, meters and relays to the terminals; RS485 devices to A/B/G.
-2. **Set it up.** Open `index.html` in a browser. Name your signals, choose analog modes and scaling, assign the buzzer, add RS485 points, set Ethernet, MQTT and Modbus. Everything can be tried with simulated values first.
-3. **Upload.** **Export setup** downloads `ioc_config.json`. Put it in `firmware/data/` and run `pio run -t upload` and `pio run -t uploadfs`.
+2. **Set it up.** Open the [dashboard](https://dineshpalsingh1989.github.io/IRIV-IOC-Gateway/). Name your signals, choose analog modes and scaling, assign the buzzer, add RS485 points, set Ethernet, MQTT and Modbus. Try everything with simulated values first. Settings stay in your browser.
+3. **Install.** Plug the controller in with USB-C and open the **Install** page: one click puts the firmware on, one click sends your settings.
 4. **Done!** SCADA reads Modbus TCP, MQTT clients subscribe to your topics.
 
 ## 📸 The dashboard
@@ -46,22 +56,35 @@ Set it up in a friendly browser dashboard, upload, done.</p>
 | ![Overview with digital inputs as LEDs, output tiles, analog values with bars and the buzzer card](docs/screenshots/overview.png) **Overview.** Tap LEDs and outputs to simulate. | ![Analog input set to 4-20 mA scaled 0-10 bar, with a warning to set the DIP switch to Current](docs/screenshots/analog-dialog.png) **Analog setup.** Pick the mode, scale it, and get reminded of the DIP switch. |
 | ![RS485 points table: flow meter, tank level and door switch, each with a Modbus TCP address and MQTT topic](docs/screenshots/rs485-points.png) **RS485 points.** The TCP address and topic are assigned for you. | ![Buzzer setup: trigger, frequency, pattern, auto-silence and test tone](docs/screenshots/buzzer-dialog.png) **Buzzer.** Assign a trigger and hear it with **Test tone**. |
 
-## 🚀 Quick start
+## 🚀 Quick start: install from your browser
 
-You need [PlatformIO](https://platformio.org/) (VS Code extension or CLI) and a USB-C cable.
+No tools to install. You need **Chrome or Edge on a computer** and a USB-C cable.
+
+<p align="center"><img src="docs/screenshots/install.png" alt="Install page: 1 install the firmware, 2 send your settings, 3 check it's running" width="90%"></p>
+
+1. Open the **[web installer](https://dineshpalsingh1989.github.io/IRIV-IOC-Gateway/#install)** (set up your channels and connections first, on the other pages).
+2. **Install the firmware.** Click **Put in install mode** (or hold BOOT, tap RESET, release BOOT with a paperclip). A drive called **RP2350** appears: click **Write firmware to the RP2350 drive** and pick it. The controller restarts by itself.
+3. **Send your settings.** Click **Connect over USB**, pick the controller, then **Send settings**. It saves them, restarts and reconnects.
+4. **Check it's running.** Step 3 shows the IP address, MQTT, Modbus TCP clients and every RS485 value, live.
+
+Other browsers can still use **Download .uf2** and drag the file onto the RP2350 drive. Firmware files are also on the [releases page](https://github.com/dineshpalsingh1989/IRIV-IOC-Gateway/releases/latest).
+
+<details>
+<summary><b>For developers: build with PlatformIO</b></summary>
 
 ```sh
 git clone https://github.com/dineshpalsingh1989/IRIV-IOC-Gateway.git
-cd IRIV-IOC-Gateway
-# 1. open index.html in a browser, set things up, click "Export setup"
-# 2. save the downloaded file as firmware/data/ioc_config.json
-cd firmware
+cd IRIV-IOC-Gateway/firmware
+# optional: put an exported ioc_config.json in data/ to flash settings too
 pio run -t upload       # firmware
-pio run -t uploadfs     # your settings
+pio run -t uploadfs     # settings from data/
 pio device monitor      # watch it start: IP address, MQTT, RS485
 ```
 
-No settings file yet? The gateway still starts: DHCP, Modbus TCP on port 502, MQTT and RS485 off.
+Every push runs the checks, builds the firmware and republishes the dashboard and installer to GitHub Pages ([workflow](.github/workflows/build.yml)). Tag `v*` to attach the firmware to a release.
+</details>
+
+No settings sent yet? The gateway still starts: DHCP, Modbus TCP on port 502, MQTT and RS485 off.
 
 ## 🛠️ Our own libraries
 
@@ -139,6 +162,8 @@ Full table, MQTT payloads and notes: [`firmware/README.md`](firmware/README.md).
 
 ```
 index.html, app.js, styles.css   the dashboard (no build step, no dependencies)
+install.js                       the web installer (Web Serial + File System Access)
+.github/workflows/build.yml      checks, firmware build, GitHub Pages and releases
 firmware/                        PlatformIO project for the IRIV IOC (RP2350A)
   src/                           gateway: Ethernet, I/O, Modbus TCP, MQTT, RS485 on core 1
   lib/                           our libraries
@@ -149,7 +174,7 @@ docs/                            README images and screenshots
 
 ## 🚧 Status
 
-**Experimental.** The firmware compiles for the IRIV IOC (`cytron_iriv_io_controller`), and the dashboard is covered by automated browser checks. It has **not yet been validated on real hardware**: test inputs, counters, analog readings (uncalibrated), outputs, RS485 timing and MQTT reconnects on the bench before connecting equipment. MQTT runs without TLS on this board, so use a broker on a trusted network.
+**Experimental.** The firmware compiles for the IRIV IOC (`cytron_iriv_io_controller`), the library tests run on every push, and the dashboard and installer are covered by automated browser checks against a simulated controller. It has **not yet been validated on real hardware**: test inputs, counters, analog readings (uncalibrated), outputs, RS485 timing and MQTT reconnects on the bench before connecting equipment. MQTT runs without TLS on this board, so use a broker on a trusted network.
 
 Check the wiring and load limits against the IRIV IOC datasheet: outputs are 50 V / 500 mA solid-state relays, and the analog mode must match the AN-IN MODE DIP switch.
 

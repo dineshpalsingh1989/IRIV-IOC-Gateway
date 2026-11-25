@@ -2,7 +2,7 @@
 
 Arduino-Pico (RP2350A) firmware for the Cytron IRIV IO Controller. It publishes every pin to your LAN over **Modbus TCP** and **MQTT**, and polls **RS485 Modbus RTU** devices so their values appear on the LAN too. All settings come from the dashboard (`../index.html`) as `ioc_config.json`.
 
-**Status: experimental.** The firmware compiles for `cytron_iriv_io_controller` (153 KB flash, 99 KB RAM). It has **not** been run on a controller yet, and the native library tests have not been run on a PC yet (see Checks). Validate on the bench before connecting equipment.
+**Status: experimental.** The firmware compiles for `cytron_iriv_io_controller` (158 KB flash, 99 KB RAM). It has **not** been run on a controller yet, and the native library tests have not been run on a PC yet (see Checks). Validate on the bench before connecting equipment.
 
 ## Our libraries
 
@@ -23,6 +23,19 @@ Everything protocol- and board-specific is in our own MIT libraries under `lib/`
 - Hold **USER** while powering up to start on `192.168.4.1/24` instead of the saved address.
 
 ## Install
+
+**Easiest: the [web installer](https://dineshpalsingh1989.github.io/IRIV-IOC-Gateway/#install)** (Chrome or Edge). It writes the firmware to the RP2350 drive and sends the dashboard's settings over USB. No PlatformIO needed.
+
+The USB setup protocol it uses (115200 baud, one line per command; replies are `@IOC ` + JSON):
+
+| Command | Reply |
+| --- | --- |
+| `HELLO` | `{"type":"hello","product":"iriv-ioc-gateway","version",...,"host","ip","config"}` |
+| `STATUS` | `{"type":"status", ip, link, online, modbus{clients,requests}, mqtt{connected}, rs485[{id,value,errors}]}` |
+| `CONFIG <bytes>` then exactly that many bytes of JSON | `{"type":"saved"}`, then a restart. The file is checked with the real loader before it replaces the old one. |
+| `REBOOT` / `BOOTLOADER` | restart / restart into install mode (RP2350 drive) |
+
+**With PlatformIO:**
 
 1. Build in the dashboard, then **Export setup**. This downloads `ioc_config.json`. Include the MQTT password when asked, or type it into the file's `mqtt.pass`.
 2. Put the file at `firmware/data/ioc_config.json`. `data/ioc_config.example.json` shows the format.
@@ -65,8 +78,9 @@ Topics come from the dashboard's topic map (`map.mqtt` in the config). On/off st
 ## Checks
 
 ```sh
-python tools/check_register_map.py   # dashboard and firmware use the same addresses (passes)
-python tools/run_native_tests.py     # IRIVModbus core + IRIVIOCIo logic on a PC; needs g++, clang++ or zig
+python tools/check_register_map.py   # dashboard and firmware use the same addresses
+python tools/build_site.py           # Pages site: dashboard + installer + firmware/manifest.json
+python tools/run_native_tests.py     # IRIVModbus core + IRIVIOCIo logic on a PC; needs g++, clang++ or zig (runs in CI)
 pio run                              # compile for the IRIV IOC (passes)
 ```
 

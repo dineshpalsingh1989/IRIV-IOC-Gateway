@@ -1,0 +1,77 @@
+name: Build, test and publish
+# Every push and pull request: register-map check, library tests on Linux, dashboard syntax, firmware build.
+# main: publishes the dashboard + web installer + firmware to GitHub Pages.
+# Tags v*: also attaches the firmware to a GitHub release.
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write # release assets on tags
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.platformio
+          key: platformio-${{ runner.os }}-${{ hashFiles('firmware/platformio.ini') }}
+
+      - name: Dashboard and firmware use the same Modbus map
+        run: python firmware/tools/check_register_map.py
+
+      - name: Library tests (IRIVModbus, IRIVIOCIo)
+        run: python firmware/tools/run_native_tests.py
+
+      - name: Dashboard syntax
+        run: node --check app.js && node --check install.js
+
+      - name: Build firmware for the IRIV IO Controller
+        run: |
+          pip install platformio
+          pio run -d firmware
+
+      - name: Assemble site (dashboard, installer, firmware)
+        run: python firmware/tools/build_site.py site
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: site
+
+      - name: Attach firmware to the release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 \
+            || gh release create "$GITHUB_REF_NAME" --title "IRIV IOC Gateway $GITHUB_REF_NAME" --generate-notes
+          gh release upload "$GITHUB_REF_NAME" site/firmware/iriv-ioc-gateway.uf2 site/firmware/manifest.json --clobber
+
+  deploy:
+    needs: build
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    permissions:
+      pages: write
+      id-token: write
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v5
