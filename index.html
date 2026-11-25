@@ -1,0 +1,347 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f4f6f2" />
+    <title>IRIV IOC · Control desk</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23294b3c'/%3E%3Crect x='8' y='8' width='7' height='7' rx='1.5' fill='%23fff'/%3E%3Crect x='17' y='8' width='7' height='7' rx='1.5' fill='%23fff' opacity='.5'/%3E%3Crect x='8' y='17' width='7' height='7' rx='1.5' fill='%23fff' opacity='.7'/%3E%3Crect x='17' y='17' width='7' height='7' rx='1.5' fill='%23fff'/%3E%3C/svg%3E" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <!-- Icon set: Lucide (ISC). Inline so the page works offline on a plant PC. -->
+    <svg class="sprite" aria-hidden="true">
+      <symbol id="i-dashboard" viewBox="0 0 24 24"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></symbol>
+      <symbol id="i-channels" viewBox="0 0 24 24"><path d="M21 4h-7M10 4H3M21 12h-9M8 12H3M21 20h-5M12 20H3M14 2v4M8 10v4M16 18v4"/></symbol>
+      <symbol id="i-network" viewBox="0 0 24 24"><rect x="16" y="16" width="6" height="6" rx="1"/><rect x="2" y="16" width="6" height="6" rx="1"/><rect x="9" y="2" width="6" height="6" rx="1"/><path d="M5 16v-3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3M12 12V8"/></symbol>
+      <symbol id="i-download" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5M12 15V3"/></symbol>
+      <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></symbol>
+      <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+      <symbol id="i-arrow-right" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></symbol>
+      <symbol id="i-input" viewBox="0 0 24 24"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="m10 17 5-5-5-5M15 12H3"/></symbol>
+      <symbol id="i-output" viewBox="0 0 24 24"><rect width="20" height="12" x="2" y="6" rx="6"/><circle cx="16" cy="12" r="2"/></symbol>
+      <symbol id="i-gauge" viewBox="0 0 24 24"><path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/></symbol>
+      <symbol id="i-pencil" viewBox="0 0 24 24"><path d="M21.17 6.81a1 1 0 0 0-3.99-3.99L3.84 16.17a2 2 0 0 0-.5.83l-1.32 4.35a.5.5 0 0 0 .62.62l4.35-1.32a2 2 0 0 0 .83-.5z"/><path d="m15 5 4 4"/></symbol>
+      <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+      <symbol id="i-reset" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></symbol>
+      <symbol id="i-cpu" viewBox="0 0 24 24"><rect width="16" height="16" x="4" y="4" rx="2"/><rect width="6" height="6" x="9" y="9" rx="1"/><path d="M15 2v2M15 20v2M2 15h2M2 9h2M20 15h2M20 9h2M9 2v2M9 20v2"/></symbol>
+      <symbol id="i-ethernet" viewBox="0 0 24 24"><path d="m15 20 3-3h2a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h2l3 3z"/><path d="M6 8v1M10 8v1M14 8v1M18 8v1"/></symbol>
+      <symbol id="i-book" viewBox="0 0 24 24"><path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/></symbol>
+      <symbol id="i-external" viewBox="0 0 24 24"><path d="M15 3h6v6M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h3"/></symbol>
+      <symbol id="i-mqtt" viewBox="0 0 24 24"><path d="M4.9 16.1C1 12.2 1 5.8 4.9 1.9M7.8 4.7a6.14 6.14 0 0 0-.8 7.5"/><circle cx="12" cy="9" r="2"/><path d="M16.2 4.8c2 2 2.26 5.11.8 7.47M19.1 1.9a9.96 9.96 0 0 1 0 14.1M9.5 18h5M8 22l4-11 4 11"/></symbol>
+      <symbol id="i-server" viewBox="0 0 24 24"><rect width="20" height="8" x="2" y="2" rx="2"/><rect width="20" height="8" x="2" y="14" rx="2"/><path d="M6 6h.01M6 18h.01"/></symbol>
+      <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2.06 12.35a1 1 0 0 1 0-.7 10.75 10.75 0 0 1 19.88 0 1 1 0 0 1 0 .7 10.75 10.75 0 0 1-19.88 0"/><circle cx="12" cy="12" r="3"/></symbol>
+      <symbol id="i-eye-off" viewBox="0 0 24 24"><path d="M10.73 5.08a10.74 10.74 0 0 1 11.2 6.57 1 1 0 0 1 0 .7 10.75 10.75 0 0 1-1.44 2.49M14.08 14.16a3 3 0 0 1-4.24-4.24M17.48 17.5a10.75 10.75 0 0 1-15.42-5.15 1 1 0 0 1 0-.7 10.75 10.75 0 0 1 4.45-5.14M2 2l20 20"/></symbol>
+      <symbol id="i-plug" viewBox="0 0 24 24"><path d="M12 22v-5M9 8V2M15 8V2M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8Z"/></symbol>
+      <symbol id="i-shield" viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></symbol>
+      <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></symbol>
+      <symbol id="i-thermo" viewBox="0 0 24 24"><path d="M14 4v10.54a4 4 0 1 1-4 0V4a2 2 0 0 1 4 0Z"/></symbol>
+      <symbol id="i-bell" viewBox="0 0 24 24"><path d="M10.27 21a2 2 0 0 0 3.46 0"/><path d="M3.26 15.33A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.67C19.41 13.96 18 12.5 18 8A6 6 0 0 0 6 8c0 4.5-1.41 5.96-2.74 7.33"/></symbol>
+      <symbol id="i-volume" viewBox="0 0 24 24"><path d="M11 4.7a.7.7 0 0 0-1.2-.5L6.41 7.59A1.4 1.4 0 0 1 5.42 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.42a1.4 1.4 0 0 1 1 .41l3.38 3.39A.7.7 0 0 0 11 19.3z"/><path d="M16 9a5 5 0 0 1 0 6M19.36 18.36a9 9 0 0 0 0-12.72"/></symbol>
+      <symbol id="i-alert" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4M12 17h.01"/></symbol>
+      <symbol id="i-plus" viewBox="0 0 24 24"><path d="M5 12h14M12 5v14"/></symbol>
+      <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></symbol>
+    </svg>
+
+    <a class="skip-link" href="#main">Skip to content</a>
+
+    <aside class="sidebar">
+      <a class="brand" href="#overview" aria-label="IRIV IOC control desk, overview">
+        <span class="brand-mark" aria-hidden="true"><span></span><span></span><span></span><span></span></span>
+        <span class="brand-text"><b>fieldnote</b><small>IRIV CONTROL DESK</small></span>
+      </a>
+      <p class="nav-label">Device</p>
+      <nav class="nav" aria-label="Main">
+        <a class="nav-item" href="#overview" data-view="overview" aria-current="page"><svg class="i" aria-hidden="true"><use href="#i-dashboard"/></svg><span class="nav-text">Overview</span></a>
+        <a class="nav-item" href="#channels" data-view="channels"><svg class="i" aria-hidden="true"><use href="#i-channels"/></svg><span class="nav-text">Channels</span><span class="nav-count" aria-label="18 channels">18</span></a>
+        <a class="nav-item" href="#connections" data-view="connections"><svg class="i" aria-hidden="true"><use href="#i-network"/></svg><span class="nav-text">Connections</span><span class="nav-dirty" title="Unsaved changes"></span></a>
+      </nav>
+      <div class="help-card">
+        <svg class="i" aria-hidden="true"><use href="#i-book"/></svg>
+        <b>Wiring a channel?</b>
+        <p>Check terminal pinouts, sink/source wiring and load limits in the datasheet.</p>
+        <a href="https://www.cytron.io" target="_blank" rel="noreferrer">Product page <svg class="i i-sm" aria-hidden="true"><use href="#i-external"/></svg><span class="sr-only">(opens in new tab)</span></a>
+      </div>
+    </aside>
+
+    <main class="main" id="main" tabindex="-1">
+      <header class="topbar">
+        <div class="crumb">Devices <span aria-hidden="true">/</span> <b>IRIV IOC</b></div>
+        <span class="mode-pill"><i aria-hidden="true"></i> Preview · simulated data</span>
+      </header>
+
+      <!-- OVERVIEW -->
+      <section class="page active" id="view-overview" aria-labelledby="overview-title">
+        <div class="page-heading">
+          <div>
+            <div class="eyebrow"><svg class="i i-sm" aria-hidden="true"><use href="#i-dashboard"/></svg> Device overview</div>
+            <h1 id="overview-title" tabindex="-1">IRIV IO Controller <span class="tag">IOC-01</span></h1>
+            <p class="subhead">Monitor signals and manage field connections.</p>
+          </div>
+          <button type="button" class="button button-secondary" data-export><svg class="i" aria-hidden="true"><use href="#i-download"/></svg><span class="btn-text">Export setup</span></button>
+        </div>
+        <div class="notice" role="note"><svg class="i notice-icon" aria-hidden="true"><use href="#i-info"/></svg><span><b>Preview mode.</b> Channel values are simulated. Tap inputs and outputs to try your setup, then connect a device service to control real hardware.</span><button type="button" class="notice-close" aria-label="Dismiss notice"><svg class="i" aria-hidden="true"><use href="#i-x"/></svg></button></div>
+
+        <div class="status-strip">
+          <div class="device-status"><span class="status-led" aria-hidden="true"></span><span><b>Ready to configure</b><small>Setup is saved in this browser</small></span></div>
+          <div class="status-meta"><svg class="i" aria-hidden="true"><use href="#i-cpu"/></svg><span><small>Controller</small><b>RP2350A</b></span></div>
+          <div class="status-meta"><svg class="i" aria-hidden="true"><use href="#i-ethernet"/></svg><span><small>Network</small><b>Not connected</b></span></div>
+          <a class="button button-dark" href="#connections">Set up connection <svg class="i" aria-hidden="true"><use href="#i-arrow-right"/></svg></a>
+        </div>
+
+        <div class="section-head"><div><h2>Signal summary</h2><p>17 I/O channels and the on-board buzzer</p></div><a class="text-button" href="#channels">Configure channels <svg class="i i-sm" aria-hidden="true"><use href="#i-arrow-right"/></svg></a></div>
+        <div class="summary-grid">
+          <article class="summary-card" aria-labelledby="di-title">
+            <div class="card-top"><span class="metric-icon input"><svg class="i" aria-hidden="true"><use href="#i-input"/></svg></span><h3 id="di-title">Digital inputs</h3></div>
+            <div class="metric-line"><strong id="di-count">0</strong><span>/ 11 active</span></div>
+            <div class="led-panel" id="di-leds"></div>
+            <p class="card-note">Tap an LED to simulate an input</p>
+          </article>
+          <article class="summary-card" aria-labelledby="do-title">
+            <div class="card-top"><span class="metric-icon output"><svg class="i" aria-hidden="true"><use href="#i-output"/></svg></span><h3 id="do-title">Digital outputs</h3></div>
+            <div class="metric-line"><strong id="do-count">0</strong><span>/ 4 on</span></div>
+            <div class="do-tiles" id="do-tiles"></div>
+            <p class="card-note">Tap to toggle · preview only</p>
+          </article>
+          <article class="summary-card" aria-labelledby="an-title">
+            <div class="card-top"><span class="metric-icon analog"><svg class="i" aria-hidden="true"><use href="#i-gauge"/></svg></span><h3 id="an-title">Analog inputs</h3></div>
+            <div class="analog-values" id="analog-mini"></div>
+          </article>
+          <article class="summary-card" aria-labelledby="bz-title">
+            <div class="card-top"><span class="metric-icon buzzer"><svg class="i" aria-hidden="true"><use href="#i-bell"/></svg></span><h3 id="bz-title">Buzzer</h3><span class="state-pill" id="bz-state">Silent</span></div>
+            <div id="bz-summary"></div>
+            <div class="card-actions">
+              <button type="button" class="button button-secondary compact" data-test-tone="saved"><svg class="i" aria-hidden="true"><use href="#i-volume"/></svg>Test tone</button>
+              <button type="button" class="button button-secondary compact" data-edit="BZ"><svg class="i" aria-hidden="true"><use href="#i-pencil"/></svg>Assign</button>
+            </div>
+          </article>
+        </div>
+
+        <div class="lower-grid">
+          <section class="panel" aria-labelledby="hw-title">
+            <div class="panel-heading"><div><h2 id="hw-title">Hardware at a glance</h2><p>From the IRIV IOC Rev 1.0 datasheet</p></div></div>
+            <ul class="spec-list">
+              <li><svg class="i" aria-hidden="true"><use href="#i-cpu"/></svg><span><b>RP2350A</b><small>Dual Cortex-M33 @ 150 MHz · 520 KB SRAM · 2 MB flash</small></span></li>
+              <li><svg class="i" aria-hidden="true"><use href="#i-plug"/></svg><span><b>10–30 V DC supply</b><small>Surge protected to 60 V / 20 ms · USB-C 5 V · max 0.7 W</small></span></li>
+              <li><svg class="i" aria-hidden="true"><use href="#i-shield"/></svg><span><b>Isolation</b><small>DI 3750 Vrms · DO 1500 Vrms · RS485 5000 Vrms</small></span></li>
+              <li><svg class="i" aria-hidden="true"><use href="#i-ethernet"/></svg><span><b>Ethernet · W5500</b><small>10/100 Mbps · 8 hardware sockets · Modbus TCP, MQTT, HTTP</small></span></li>
+              <li><svg class="i" aria-hidden="true"><use href="#i-server"/></svg><span><b>Isolated RS485</b><small>Up to 500 kbps · auto direction · 120 Ω termination switch</small></span></li>
+              <li><svg class="i" aria-hidden="true"><use href="#i-clock"/></svg><span><b>PCF85063A RTC</b><small>I²C 0x51 · CR2032 backup cell</small></span></li>
+              <li><svg class="i" aria-hidden="true"><use href="#i-bell"/></svg><span><b>Passive buzzer · GP11</b><small>Variable-frequency tones and melodies via PWM</small></span></li>
+              <li><svg class="i" aria-hidden="true"><use href="#i-thermo"/></svg><span><b>−20 to 70 °C</b><small>10–80 % RH, non-condensing</small></span></li>
+            </ul>
+          </section>
+          <section class="panel" aria-labelledby="conn-title">
+            <div class="panel-heading"><div><h2 id="conn-title">Connections</h2><p>Protocol setup</p></div></div>
+            <div class="connection-row"><span class="protocol-icon mqtt"><svg class="i" aria-hidden="true"><use href="#i-mqtt"/></svg></span><span><b>MQTT</b><small id="mqtt-detail">Publish &amp; subscribe</small></span><span class="conn-state" id="mqtt-state">Off</span></div>
+            <div class="connection-row"><span class="protocol-icon modbus"><svg class="i" aria-hidden="true"><use href="#i-server"/></svg></span><span><b>Modbus TCP</b><small id="modbus-detail">Server on Ethernet</small></span><span class="conn-state" id="modbus-state">Off</span></div>
+            <div class="connection-row"><span class="protocol-icon rs485"><svg class="i" aria-hidden="true"><use href="#i-server"/></svg></span><span><b>RS485 · Modbus RTU</b><small id="rs485-detail">Poll devices on the bus</small></span><span class="conn-state" id="rs485-state">Off</span></div>
+            <a class="button button-secondary full-button" href="#connections">Configure protocols <svg class="i" aria-hidden="true"><use href="#i-arrow-right"/></svg></a>
+          </section>
+        </div>
+      </section>
+
+      <!-- CHANNELS -->
+      <section class="page" id="view-channels" aria-labelledby="channels-title">
+        <div class="page-heading">
+          <div>
+            <div class="eyebrow"><svg class="i i-sm" aria-hidden="true"><use href="#i-channels"/></svg> Channel setup</div>
+            <h1 id="channels-title" tabindex="-1">Channels</h1>
+            <p class="subhead">Name signals, set analog modes and scaling, and assign the buzzer.</p>
+          </div>
+          <button type="button" class="button button-secondary" data-export><svg class="i" aria-hidden="true"><use href="#i-download"/></svg><span class="btn-text">Export setup</span></button>
+        </div>
+        <div class="notice" role="note"><svg class="i notice-icon" aria-hidden="true"><use href="#i-info"/></svg><span>Edit a channel for its full setup. MQTT topics and Modbus registers for all channels are on the <a href="#connections">Connections</a> page.</span><button type="button" class="notice-close" aria-label="Dismiss notice"><svg class="i" aria-hidden="true"><use href="#i-x"/></svg></button></div>
+        <div class="channel-toolbar">
+          <div class="tabs" role="group" aria-label="Filter channels">
+            <button type="button" class="channel-tab" data-filter="all" aria-pressed="true">All <span>18</span></button>
+            <button type="button" class="channel-tab" data-filter="digital-input" aria-pressed="false">Digital in <span>11</span></button>
+            <button type="button" class="channel-tab" data-filter="digital-output" aria-pressed="false">Digital out <span>4</span></button>
+            <button type="button" class="channel-tab" data-filter="analog-input" aria-pressed="false">Analog in <span>2</span></button>
+            <button type="button" class="channel-tab" data-filter="buzzer" aria-pressed="false">Buzzer <span>1</span></button>
+          </div>
+          <button type="button" class="button button-secondary compact" id="reset-config"><svg class="i" aria-hidden="true"><use href="#i-reset"/></svg>Reset channels</button>
+        </div>
+        <div class="table-wrap">
+          <table class="channel-table">
+            <caption class="sr-only">Controller channels</caption>
+            <thead><tr><th scope="col">Channel</th><th scope="col">Name</th><th scope="col">Type</th><th scope="col">Configuration</th><th scope="col">State</th><th scope="col"><span class="sr-only">Actions</span></th></tr></thead>
+            <tbody id="channel-rows"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- CONNECTIONS -->
+      <section class="page" id="view-connections" aria-labelledby="connections-title">
+        <div class="page-heading">
+          <div>
+            <div class="eyebrow"><svg class="i i-sm" aria-hidden="true"><use href="#i-network"/></svg> Communications</div>
+            <h1 id="connections-title" tabindex="-1">Connections</h1>
+            <p class="subhead">Every pin and RS485 value is pushed to your LAN over MQTT and Modbus TCP.</p>
+          </div>
+          <div class="heading-actions">
+            <span class="dirty-pill" id="dirty" hidden>Unsaved changes</span>
+            <button type="submit" form="conn-form" class="button button-dark"><svg class="i" aria-hidden="true"><use href="#i-check"/></svg>Save</button>
+          </div>
+        </div>
+
+        <div class="flow" aria-label="Data flow">
+          <div class="flow-node"><svg class="i" aria-hidden="true"><use href="#i-server"/></svg><span><b>RS485 devices</b><small>Modbus RTU, polled by the IOC</small></span></div>
+          <svg class="i flow-arrow" aria-hidden="true"><use href="#i-arrow-right"/></svg>
+          <div class="flow-node core"><svg class="i" aria-hidden="true"><use href="#i-cpu"/></svg><span><b>IRIV IOC</b><small>17 pins + buzzer</small></span></div>
+          <svg class="i flow-arrow" aria-hidden="true"><use href="#i-arrow-right"/></svg>
+          <div class="flow-node"><svg class="i" aria-hidden="true"><use href="#i-ethernet"/></svg><span><b>LAN</b><small>MQTT broker · Modbus TCP clients</small></span></div>
+        </div>
+
+        <form class="connection-layout" id="conn-form">
+          <section class="panel config-panel" aria-labelledby="mqtt-title">
+            <div class="config-title">
+              <span class="protocol-icon mqtt large"><svg class="i" aria-hidden="true"><use href="#i-mqtt"/></svg></span>
+              <div><h2 id="mqtt-title">MQTT</h2><p>Publish values to a broker on your LAN and receive output commands.</p></div>
+              <label class="switch"><input type="checkbox" role="switch" id="mqtt-enabled" aria-label="Enable MQTT"><span aria-hidden="true"></span></label>
+            </div>
+            <div class="form-grid">
+              <label class="field span-2"><span>Broker address</span><input id="mqtt-host" placeholder="192.168.1.10 or mqtt.local" autocomplete="off" /></label>
+              <label class="field"><span>Port</span><input id="mqtt-port" type="number" min="1" max="65535" step="1" placeholder="1883" inputmode="numeric" /></label>
+              <label class="field"><span>Client ID</span><input id="mqtt-client" placeholder="iriv-ioc-01" autocomplete="off" /></label>
+              <label class="field"><span>Base topic</span><input id="mqtt-topic" placeholder="factory/line01/ioc01" autocomplete="off" /></label>
+              <label class="field"><span>Username <small>Optional</small></span><input id="mqtt-user" autocomplete="username" /></label>
+              <label class="field"><span>Password <small>Optional</small></span><span class="input-with-button"><input id="mqtt-pass" type="password" autocomplete="current-password" /><button type="button" class="input-button" id="toggle-pass" aria-label="Show password" aria-pressed="false"><svg class="i" aria-hidden="true"><use href="#i-eye"/></svg></button></span></label>
+              <label class="field"><span>Command QoS <small>subscribe</small></span><select id="mqtt-qos"><option value="0">0 · At most once</option><option value="1">1 · At least once</option></select></label>
+              <label class="field"><span>Analog publish interval <small>seconds</small></span><input id="mqtt-interval" type="number" required min="0.1" max="3600" step="0.1" inputmode="decimal" /></label>
+              <label class="check-field span-2"><input id="mqtt-retain" type="checkbox" /> Retain state messages</label>
+              <p class="edit-help span-2">Values publish at QoS 0. Plain MQTT on port 1883: TLS is not supported on the IRIV IOC, so use a broker on a trusted LAN.</p>
+            </div>
+            <div class="callout"><small>Default topics</small><code id="topic-preview">factory/line01/ioc01/di0/state</code><p>Every pin and RS485 point publishes under the base topic unless you key in your own topic in the map below.</p></div>
+          </section>
+
+          <div class="stack">
+            <section class="panel config-panel" aria-labelledby="net-title">
+              <div class="config-title">
+                <span class="protocol-icon network large"><svg class="i" aria-hidden="true"><use href="#i-ethernet"/></svg></span>
+                <div><h2 id="net-title">Ethernet</h2><p>The controller's address on your LAN.</p></div>
+              </div>
+              <div class="form-grid">
+                <label class="check-field span-2"><input id="net-dhcp" type="checkbox" /> Get an address automatically (DHCP)</label>
+                <div class="span-2 form-grid" id="net-static">
+                  <label class="field"><span>IP address</span><input id="net-ip" inputmode="decimal" placeholder="192.168.1.50" pattern="^((25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(25[0-5]|2[0-4]\d|1?\d?\d)$" title="Dotted IPv4, e.g. 192.168.1.50" autocomplete="off" /></label>
+                  <label class="field"><span>Subnet mask</span><input id="net-subnet" inputmode="decimal" placeholder="255.255.255.0" pattern="^((25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(25[0-5]|2[0-4]\d|1?\d?\d)$" title="Dotted IPv4, e.g. 255.255.255.0" autocomplete="off" /></label>
+                  <label class="field"><span>Gateway <small>Optional</small></span><input id="net-gateway" inputmode="decimal" placeholder="192.168.1.1" pattern="^((25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(25[0-5]|2[0-4]\d|1?\d?\d)$" title="Dotted IPv4" autocomplete="off" /></label>
+                  <label class="field"><span>DNS <small>Optional</small></span><input id="net-dns" inputmode="decimal" placeholder="Uses the gateway" pattern="^((25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(25[0-5]|2[0-4]\d|1?\d?\d)$" title="Dotted IPv4" autocomplete="off" /></label>
+                </div>
+              </div>
+              <div class="callout"><small>Lost the address?</small><p>Hold the USER button while powering up: the controller starts on 192.168.4.1 for a laptop plugged in directly.</p></div>
+            </section>
+            <section class="panel config-panel" aria-labelledby="modbus-title">
+              <div class="config-title">
+                <span class="protocol-icon modbus large"><svg class="i" aria-hidden="true"><use href="#i-server"/></svg></span>
+                <div><h2 id="modbus-title">Modbus TCP server</h2><p>SCADA and PLCs read every pin over Ethernet at fixed addresses.</p></div>
+                <label class="switch"><input type="checkbox" role="switch" id="modbus-enabled" aria-label="Enable Modbus TCP"><span aria-hidden="true"></span></label>
+              </div>
+              <div class="form-grid">
+                <label class="field"><span>TCP port</span><input id="modbus-port" type="number" min="1" max="65535" step="1" placeholder="502" inputmode="numeric" /></label>
+                <label class="field"><span>Unit ID <small>255 = Cytron default</small></span><input id="modbus-unit" type="number" required min="1" max="255" step="1" placeholder="255" inputmode="numeric" /></label>
+                <label class="field span-2"><span>32-bit word order <small>Float32 values served to clients</small></span><select id="modbus-word"><option value="ABCD">ABCD · high word first</option><option value="CDAB">CDAB · low word first</option></select></label>
+              </div>
+              <div class="callout"><small>Fixed address map · same as Cytron's firmware</small><p>Discrete inputs 0x0000 · DI0–DI10<br>Coils 0x0100 · DO0–DO3 · 0x0500 buzzer · 0x0300/0x0310 counter enable/reset<br>Input registers 0x0200 mV · 0x0210 µA · 0x0220 scaled float32 · 0x0400 counters<br>Input registers 0x1000+ · RS485 points, assigned when you add them</p></div>
+            </section>
+
+            <section class="panel config-panel" aria-labelledby="rs485-title">
+              <div class="config-title">
+                <span class="protocol-icon rs485 large"><svg class="i" aria-hidden="true"><use href="#i-server"/></svg></span>
+                <div><h2 id="rs485-title">RS485 · Modbus RTU master</h2><p>Polls devices on the RS485 bus and republishes their values to the LAN.</p></div>
+                <label class="switch"><input type="checkbox" role="switch" id="rs485-enabled" aria-label="Enable RS485 polling"><span aria-hidden="true"></span></label>
+              </div>
+              <div class="form-grid three">
+                <label class="field"><span>Baud rate</span><select id="rs485-baud"><option>9600</option><option>19200</option><option>38400</option><option>57600</option><option>115200</option><option>230400</option></select></label>
+                <label class="field"><span>Parity</span><select id="rs485-parity"><option>None</option><option>Even</option><option>Odd</option></select></label>
+                <label class="field"><span>Stop bits</span><select id="rs485-stop"><option>1</option><option>2</option></select></label>
+                <label class="field"><span>Poll every <small>ms</small></span><input id="rs485-poll" type="number" required min="100" max="60000" step="1" inputmode="numeric" /></label>
+                <label class="field"><span>Timeout <small>ms</small></span><input id="rs485-timeout" type="number" required min="50" max="5000" step="1" inputmode="numeric" /></label>
+                <label class="field"><span>Device word order</span><select id="rs485-word"><option value="ABCD">ABCD</option><option value="CDAB">CDAB</option><option value="BADC">BADC</option><option value="DCBA">DCBA</option></select></label>
+              </div>
+              <div class="callout"><small>Wiring</small><p>A, B and G on terminal 1 · max 500 kbps · turn on the 120 Ω termination switch only at the two ends of the bus.</p></div>
+            </section>
+          </div>
+        </form>
+
+        <section class="panel map-panel" aria-labelledby="pt-title" id="rs485-panel">
+          <div class="panel-heading">
+            <span class="protocol-icon rs485"><svg class="i" aria-hidden="true"><use href="#i-server"/></svg></span>
+            <div><h2 id="pt-title">RS485 points</h2><p>Enter the slave ID and register to read. Each point gets its Modbus TCP address and MQTT topic automatically.</p></div>
+          </div>
+          <form class="pt-form" id="pt-form">
+            <label class="field span-2"><span>Name</span><input id="pt-name" required maxlength="32" placeholder="e.g. Flow meter" autocomplete="off" /></label>
+            <label class="field"><span>Slave ID <small>1–247</small></span><input id="pt-slave" type="number" required min="1" max="247" step="1" value="1" inputmode="numeric" /></label>
+            <label class="field"><span>Function</span><select id="pt-fn"><option value="holding">FC03 · Holding register</option><option value="input">FC04 · Input register</option><option value="coil">FC01 · Coil</option><option value="discrete">FC02 · Discrete input</option></select></label>
+            <label class="field"><span>Register <small>0-based (40001 → 0)</small></span><input id="pt-reg" type="number" required min="0" max="65535" step="1" value="0" inputmode="numeric" /></label>
+            <label class="field"><span>Data type</span><select id="pt-type"></select></label>
+            <label class="field"><span>Scale <small>multiply by</small></span><input id="pt-scale" type="number" step="any" value="1" /></label>
+            <label class="field"><span>Unit <small>Optional</small></span><input id="pt-unit" maxlength="8" placeholder="m³/h" /></label>
+            <div class="pt-actions span-all">
+              <p class="assign-preview" id="pt-preview"></p>
+              <button type="button" class="button button-secondary" id="pt-cancel" hidden>Cancel</button>
+              <button type="submit" class="button button-dark" id="pt-submit"><svg class="i" aria-hidden="true"><use href="#i-plus"/></svg><span>Add point</span></button>
+            </div>
+          </form>
+          <div class="table-wrap" id="pt-table">
+            <table class="channel-table map-table">
+              <caption class="sr-only">RS485 points</caption>
+              <thead><tr><th scope="col">Point</th><th scope="col">Name</th><th scope="col">Reads from</th><th scope="col">Scale</th><th scope="col">Modbus TCP</th><th scope="col">MQTT topic</th><th scope="col">Value</th><th scope="col"><span class="sr-only">Actions</span></th></tr></thead>
+              <tbody id="rs485-points"></tbody>
+            </table>
+          </div>
+          <p class="empty" id="pt-empty">No RS485 points yet. Add one above to read a device on the bus.</p>
+        </section>
+
+        <section class="panel map-panel" aria-labelledby="modbus-map-title">
+          <div class="panel-heading">
+            <span class="protocol-icon modbus"><svg class="i" aria-hidden="true"><use href="#i-server"/></svg></span>
+            <div><h2 id="modbus-map-title">Modbus TCP register map</h2><p>Fixed addresses for every pin, plus the RS485 points. Use the PLC reference in your SCADA tags.</p></div>
+          </div>
+          <div class="table-wrap">
+            <table class="channel-table map-table">
+              <caption class="sr-only">Modbus TCP address for each pin and RS485 point</caption>
+              <thead><tr><th scope="col">Source</th><th scope="col">Name</th><th scope="col">Table</th><th scope="col">Address <small>0-based</small></th><th scope="col">Format</th><th scope="col">PLC reference</th></tr></thead>
+              <tbody id="modbus-map"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="panel map-panel" aria-labelledby="mqtt-map-title">
+          <div class="panel-heading">
+            <span class="protocol-icon mqtt"><svg class="i" aria-hidden="true"><use href="#i-mqtt"/></svg></span>
+            <div><h2 id="mqtt-map-title">MQTT topic map</h2><p>Key in a topic for any pin or point, or leave it blank to use the default. Saves as you type.</p></div>
+          </div>
+          <div class="callout payload-note"><small>Payloads</small><p>Digital inputs publish <code>1</code>/<code>0</code> · analog inputs and RS485 points publish the scaled value (<code>NaN</code> on a fault) · counting inputs publish the pulse count · outputs and the buzzer accept <code>1</code>, <code>0</code>, <code>ON</code> or <code>OFF</code> on their command topic.</p></div>
+          <div class="table-wrap">
+            <table class="channel-table map-table">
+              <caption class="sr-only">MQTT topic for each pin and RS485 point</caption>
+              <thead><tr><th scope="col">Source</th><th scope="col">Name</th><th scope="col">State topic <small>publish</small></th><th scope="col">Command topic <small>subscribe</small></th><th scope="col">Enabled</th></tr></thead>
+              <tbody id="mqtt-map"></tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+
+      <footer class="footer"><span>FIELDNOTE · IRIV IOC setup</span><span>Configuration stored in this browser</span></footer>
+    </main>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+    <dialog id="edit-dialog" aria-labelledby="dialog-title">
+      <form method="dialog" id="edit-form">
+        <div class="dialog-head">
+          <div><small>Channel setup</small><h2 id="dialog-title">Edit channel</h2></div>
+          <button type="button" class="icon-button" data-close aria-label="Close"><svg class="i" aria-hidden="true"><use href="#i-x"/></svg></button>
+        </div>
+        <div id="edit-fields"></div>
+        <div class="dialog-actions">
+          <button type="button" class="button button-secondary" data-close>Cancel</button>
+          <button class="button button-dark" value="save"><svg class="i" aria-hidden="true"><use href="#i-check"/></svg>Save channel</button>
+        </div>
+      </form>
+    </dialog>
+    <script src="app.js"></script>
+  </body>
+</html>

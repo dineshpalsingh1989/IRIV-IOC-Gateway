@@ -1,0 +1,9 @@
+{
+  "name": "IRIVModbus",
+  "version": "0.1.0-alpha.1",
+  "description": "Modbus TCP server and Modbus RTU master for the Cytron IRIV IO Controller (Arduino-Pico).",
+  "license": "MIT",
+  "frameworks": ["arduino"],
+  "platforms": ["raspberrypi"],
+  "build": {"srcFilter": ["+<*>"]}
+}

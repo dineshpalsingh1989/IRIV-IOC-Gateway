@@ -1,0 +1,90 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 400" width="1200" height="400" role="img" aria-labelledby="t d">
+  <title id="t">How it works in four steps</title>
+  <desc id="d">Comic strip: 1 wire the sensors, 2 set everything up in the dashboard, 3 export ioc_config.json and upload it with the firmware, 4 SCADA and MQTT see live values.</desc>
+  <defs>
+    <style>
+      .ink{stroke:#1d2926;stroke-width:4;stroke-linecap:round;stroke-linejoin:round}
+      .thin{stroke:#1d2926;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
+      .h{font-family:'Comic Sans MS','Chalkboard SE','Comic Neue',cursive;font-weight:700;fill:#1d2926}
+      .b{font-family:'Segoe UI',Helvetica,Arial,sans-serif;fill:#34423c}
+    </style>
+  </defs>
+  <rect x="4" y="4" width="1192" height="392" rx="30" fill="#fbf8ef" class="ink"/>
+
+  <!-- panel frames -->
+  <g fill="#fff" class="ink">
+    <rect x="24" y="24" width="276" height="352" rx="18"/>
+    <rect x="316" y="24" width="276" height="352" rx="18"/>
+    <rect x="608" y="24" width="276" height="352" rx="18"/>
+    <rect x="900" y="24" width="276" height="352" rx="18"/>
+  </g>
+  <g class="h" font-size="22" text-anchor="middle">
+    <circle cx="58" cy="58" r="20" fill="#3fae6a" class="thin"/><text x="58" y="66" fill="#fff">1</text>
+    <circle cx="350" cy="58" r="20" fill="#4d6596" class="thin"/><text x="350" y="66" fill="#fff">2</text>
+    <circle cx="642" cy="58" r="20" fill="#e8833a" class="thin"/><text x="642" y="66" fill="#fff">3</text>
+    <circle cx="934" cy="58" r="20" fill="#6b4fa0" class="thin"/><text x="934" y="66" fill="#fff">4</text>
+  </g>
+
+  <!-- 1 wire it -->
+  <g transform="translate(162 190)">
+    <rect x="-90" y="-40" width="180" height="96" rx="16" fill="#2b3134" class="ink"/>
+    <g fill="#e8833a" class="thin"><rect x="-76" y="-62" width="30" height="26" rx="5"/><rect x="-40" y="-62" width="30" height="26" rx="5"/><rect x="-4" y="-62" width="30" height="26" rx="5"/><rect x="32" y="-62" width="30" height="26" rx="5"/></g>
+    <circle cx="-30" cy="4" r="12" fill="#fff"/><circle cx="30" cy="4" r="12" fill="#fff"/>
+    <circle cx="-26" cy="6" r="6" fill="#1d2926"/><circle cx="34" cy="6" r="6" fill="#1d2926"/>
+    <path d="M-14 32 q14 10 28 0" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round"/>
+    <path d="M-61 -62 C -70 -100, -110 -100, -120 -70" fill="none" stroke="#3fae6a" stroke-width="6" stroke-linecap="round"/>
+    <path d="M-25 -62 C -20 -110, 40 -110, 60 -100" fill="none" stroke="#4d6596" stroke-width="6" stroke-linecap="round"/>
+    <path d="M47 -62 C 60 -90, 100 -90, 112 -70" fill="none" stroke="#e5484d" stroke-width="6" stroke-linecap="round"/>
+    <g transform="translate(96 -10) rotate(30)"><rect x="-6" y="-46" width="12" height="44" rx="3" fill="#cfd8d1" class="thin"/><rect x="-11" y="-2" width="22" height="40" rx="8" fill="#f4c84a" class="thin"/></g>
+  </g>
+  <text x="162" y="320" text-anchor="middle" class="h" font-size="22">Wire it</text>
+  <text x="162" y="346" text-anchor="middle" class="b" font-size="15">sensors, meters, relays, RS485</text>
+
+  <!-- 2 set it up -->
+  <g transform="translate(454 190)">
+    <rect x="-100" y="-80" width="200" height="130" rx="12" fill="#ecf5ef" class="ink"/>
+    <rect x="-84" y="-64" width="44" height="98" rx="6" fill="#fff" class="thin"/>
+    <rect x="-30" y="-64" width="114" height="30" rx="6" fill="#fff" class="thin"/>
+    <rect x="-30" y="-26" width="54" height="60" rx="6" fill="#fff" class="thin"/>
+    <rect x="30" y="-26" width="54" height="60" rx="6" fill="#fff" class="thin"/>
+    <circle cx="-62" cy="-48" r="6" fill="#3fae6a"/><rect x="-74" y="-30" width="24" height="6" rx="3" fill="#cfd8d1"/><rect x="-74" y="-16" width="24" height="6" rx="3" fill="#cfd8d1"/>
+    <rect x="-22" y="-54" width="50" height="10" rx="5" fill="#3fae6a"/>
+    <path d="M-20 20 h36 M-20 8 h22" class="thin"/><path d="M40 20 l10 -14 l10 8 l14 -18" fill="none" class="thin" stroke="#4d6596"/>
+    <path d="M-120 64 h240 l-16 18 h-208 z" fill="#cfd8d1" class="ink"/>
+    <path d="M52 -6 l26 22 l-12 2 l8 16 l-8 4 l-8 -16 l-8 8 z" fill="#fff" class="thin"/>
+  </g>
+  <text x="454" y="320" text-anchor="middle" class="h" font-size="22">Set it up</text>
+  <text x="454" y="346" text-anchor="middle" class="b" font-size="15">names, modes, topics, RS485 points</text>
+
+  <!-- 3 upload -->
+  <g transform="translate(746 190)">
+    <path d="M-92 -64 h70 l20 20 v94 h-90 z" fill="#fff" class="ink"/>
+    <path d="M-22 -64 v20 h20" fill="none" class="thin"/>
+    <text x="-48" y="-12" text-anchor="middle" font-family="Consolas,monospace" font-size="15" font-weight="700" fill="#24775a">{ }</text>
+    <text x="-48" y="12" text-anchor="middle" font-family="Consolas,monospace" font-size="10" fill="#34423c">ioc_config</text>
+    <text x="-48" y="26" text-anchor="middle" font-family="Consolas,monospace" font-size="10" fill="#34423c">.json</text>
+    <path d="M6 -4 h40" stroke="#e8833a" stroke-width="7" stroke-linecap="round"/><path d="M36 -16 l14 12 l-14 12" fill="none" stroke="#e8833a" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="58" y="-46" width="54" height="84" rx="12" fill="#2b3134" class="ink"/>
+    <rect x="72" y="36" width="26" height="14" rx="3" fill="#cfd8d1" class="thin"/>
+    <path d="M85 50 C 85 80, 20 70, 10 96" fill="none" stroke="#1d2926" stroke-width="5" stroke-linecap="round"/>
+    <text x="85" y="-6" text-anchor="middle" class="h" font-size="14" style="fill:#fff">USB</text>
+    <text x="85" y="12" text-anchor="middle" class="h" font-size="14" style="fill:#fff">-C</text>
+  </g>
+  <text x="746" y="320" text-anchor="middle" class="h" font-size="22">Upload</text>
+  <text x="746" y="346" text-anchor="middle" class="b" font-size="15">pio run -t upload · -t uploadfs</text>
+
+  <!-- 4 done -->
+  <g transform="translate(1038 182)">
+    <rect x="-100" y="-78" width="140" height="92" rx="10" fill="#ecf5ef" class="ink"/>
+    <rect x="-86" y="-64" width="112" height="64" rx="5" fill="#fff" class="thin"/>
+    <path d="M-78 -16 l20 -18 l18 10 l22 -24 l22 12" fill="none" stroke="#3fae6a" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M-48 14 h36 l8 14 h-52 z" fill="#cfd8d1" class="thin"/>
+    <rect x="52" y="-50" width="52" height="94" rx="10" fill="#fff" class="ink"/>
+    <rect x="60" y="-36" width="36" height="12" rx="4" fill="#3fae6a"/><rect x="60" y="-18" width="36" height="12" rx="4" fill="#e8833a"/><rect x="60" y="0" width="36" height="12" rx="4" fill="#4d6596"/>
+    <g fill="#f4c84a" class="thin"><path d="M-110 -96 l5 12 l12 5 l-12 5 l-5 12 l-5 -12 l-12 -5 l12 -5 z"/><path d="M92 -96 l4 9 l9 4 l-9 4 l-4 9 l-4 -9 l-9 -4 l9 -4 z"/></g>
+    <text x="-30" y="84" text-anchor="middle" class="b" font-size="13" fill="#24775a">30001 = 7.36 V</text>
+    <text x="78" y="84" text-anchor="middle" class="b" font-size="13" fill="#a3562a">…/an0/state</text>
+  </g>
+  <text x="1038" y="320" text-anchor="middle" class="h" font-size="22">Done!</text>
+  <text x="1038" y="346" text-anchor="middle" class="b" font-size="15">live on SCADA and MQTT</text>
+</svg>

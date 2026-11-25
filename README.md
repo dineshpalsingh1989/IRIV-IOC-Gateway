@@ -1,0 +1,158 @@
+<p align="center"><img src="docs/images/hero.svg" alt="Cartoon: the IRIV IO Controller reads switches, 4-20 mA sensors and RS485 meters and shares them with SCADA (Modbus TCP) and an MQTT broker" width="100%"></p>
+
+<h1 align="center">IRIV IOC Gateway</h1>
+
+<p align="center"><b>Turn a Cytron IRIV IO Controller into a LAN gateway in an afternoon.</b><br>
+Every input, output and RS485 device value, on <b>Modbus TCP</b> and <b>MQTT</b> at the same time.<br>
+Set it up in a friendly browser dashboard, upload, done.</p>
+
+<p align="center">
+  <a href="#-what-can-it-do">What it does</a> ·
+  <a href="#-how-it-works">How it works</a> ·
+  <a href="#-quick-start">Quick start</a> ·
+  <a href="#-our-own-libraries">Libraries</a> ·
+  <a href="#-customize-it">Customize</a>
+</p>
+
+---
+
+## 🎯 What can it do?
+
+| | You plug in… | IOC gives you… |
+| :---: | --- | --- |
+| 🔘 | **Buttons, switches, proximity sensors** on DI0–DI10 | On/off states, debounced. DI1/3/5/7/9 can **count pulses** up to 5 kHz (flow and energy meters). |
+| 🌡️ | **4–20 mA or 0–10 V transmitters** on AN0/AN1 | Values in **your units** (bar, °C, %…), plus **wire-break alarms** when a 4–20 mA loop drops below 3.6 mA. |
+| 📟 | **RS485 Modbus RTU devices** (meters, drives, sensors) | Type the slave ID and register once: the value gets its **own Modbus TCP address and MQTT topic automatically**. Up to 64 values. |
+| 💡 | **Lamps, relays, contactors** on DO0–DO3 | Switch them from **SCADA** (Modbus coils) or **MQTT** (`ON`/`OFF`). |
+| 🔔 | The **built-in buzzer** | Beeps on a remote command, while an input is active, or when an analog value crosses a limit. Pick the pitch and pattern. |
+| 🖥️ | Your **SCADA / PLC** | Modbus TCP with the **same addresses as Cytron's own firmware**, so existing tags keep working. |
+| ☁️ | Your **MQTT broker** | A topic for every pin you choose; states on change, measurements on an interval. |
+
+> Holding the **USER** button while powering up starts the controller on `192.168.4.1`, so you can always find it with a laptop.
+
+## 🧩 How it works
+
+<p align="center"><img src="docs/images/how-it-works.svg" alt="Comic strip: 1 wire it, 2 set it up in the dashboard, 3 upload, 4 live on SCADA and MQTT" width="100%"></p>
+
+1. **Wire it.** Sensors, meters and relays to the terminals; RS485 devices to A/B/G.
+2. **Set it up.** Open `index.html` in a browser. Name your signals, choose analog modes and scaling, assign the buzzer, add RS485 points, set Ethernet, MQTT and Modbus. Everything can be tried with simulated values first.
+3. **Upload.** **Export setup** downloads `ioc_config.json`. Put it in `firmware/data/` and run `pio run -t upload` and `pio run -t uploadfs`.
+4. **Done!** SCADA reads Modbus TCP, MQTT clients subscribe to your topics.
+
+## 📸 The dashboard
+
+| | |
+| --- | --- |
+| ![Overview with digital inputs as LEDs, output tiles, analog values with bars and the buzzer card](docs/screenshots/overview.png) **Overview.** Tap LEDs and outputs to simulate. | ![Analog input set to 4-20 mA scaled 0-10 bar, with a warning to set the DIP switch to Current](docs/screenshots/analog-dialog.png) **Analog setup.** Pick the mode, scale it, and get reminded of the DIP switch. |
+| ![RS485 points table: flow meter, tank level and door switch, each with a Modbus TCP address and MQTT topic](docs/screenshots/rs485-points.png) **RS485 points.** The TCP address and topic are assigned for you. | ![Buzzer setup: trigger, frequency, pattern, auto-silence and test tone](docs/screenshots/buzzer-dialog.png) **Buzzer.** Assign a trigger and hear it with **Test tone**. |
+
+## 🚀 Quick start
+
+You need [PlatformIO](https://platformio.org/) (VS Code extension or CLI) and a USB-C cable.
+
+```sh
+git clone https://github.com/dineshpalsingh1989/IRIV-IOC-Gateway.git
+cd IRIV-IOC-Gateway
+# 1. open index.html in a browser, set things up, click "Export setup"
+# 2. save the downloaded file as firmware/data/ioc_config.json
+cd firmware
+pio run -t upload       # firmware
+pio run -t uploadfs     # your settings
+pio device monitor      # watch it start: IP address, MQTT, RS485
+```
+
+No settings file yet? The gateway still starts: DHCP, Modbus TCP on port 502, MQTT and RS485 off.
+
+## 🛠️ Our own libraries
+
+<p align="center"><img src="docs/images/libraries.svg" alt="Library cards: IRIVModbus (new), IRIVIOCIo (new), IRIVIOCHardware (extended), WilcoxonMqtt (ours)" width="100%"></p>
+
+The firmware has **no third-party Modbus or MQTT code**: every protocol and board detail lives in our own MIT libraries in [`firmware/lib/`](firmware/lib/), so we control and fix all of it. The only outside library is ArduinoJson, used to read the settings file.
+
+| Library | What it does |
+| --- | --- |
+| [IRIVModbus](firmware/lib/IRIVModbus/README.md) | Modbus TCP server (all four tables, FC 01–06/15/16) and RS485 RTU master. The protocol core runs and is tested on a PC. |
+| [IRIVIOCIo](firmware/lib/IRIVIOCIo/README.md) | Digital inputs with debounce, pulse counters, outputs, 0–10 V / 0–20 mA / 4–20 mA scaling, NAMUR NE43 faults, buzzer rules. |
+| [IRIVIOCHardware](firmware/lib/IRIVIOCHardware/README.md) | W5500 Ethernet with DHCP or static IP, LittleFS settings. |
+| [WilcoxonMqtt](firmware/lib/WilcoxonMqtt/README.md) | Small MQTT 3.1.1 client, a drop-in replacement for PubSubClient. |
+
+## 🎨 Customize it
+
+The libraries are small and readable on purpose. Some common changes:
+
+**Serve another value over Modbus TCP**: add a block to the map in `firmware/src/main.cpp` and fill it in `updateIo()`.
+
+```cpp
+static uint16_t uptimeRegs[2];
+modbusMap.addRegisters(irivmb::Area::InputRegisters, 0x0600, 2, uptimeRegs);   // in buildModbusMap()
+irivmb::putU32(uptimeRegs, millis() / 1000, cfg.modbusOrder);                  // in updateIo()
+```
+
+**React when SCADA writes a coil or register**: extend the `afterWrite` hook.
+
+```cpp
+static void afterModbusWrite(irivmb::Area area, uint16_t address, uint16_t count, void*) {
+    if (area == irivmb::Area::Coils && address == 0x0500) { /* buzzer coil written */ }
+}
+```
+
+**Use the I/O library on its own** in any Arduino-Pico sketch:
+
+```cpp
+#include <IRIVIOCIo.h>
+IRIVIOCIo io;
+void setup() { io.begin(); io.setCounter(1, true); }          // count pulses on DI1
+void loop() {
+    io.update(millis());
+    io.setOutput(0, io.input(3));                              // DO0 follows DI3
+    float mA = iriv::analogSignal(iriv::AnalogMode::MilliAmp4To20, io.adc(0), io.adcReference);
+}
+```
+
+**Tune it**
+
+| Setting | Where | Default |
+| --- | --- | --- |
+| Modbus TCP client slots | `-D IRIVMODBUS_TCP_CLIENTS=6` in `platformio.ini` | 4 |
+| ADC reference (calibration) | `io.adcReference` | 3.32 V |
+| Input debounce | `io.debounceMs` | 10 ms |
+| TCP idle / frame timeouts | `modbus.idleTimeoutMs`, `modbus.frameTimeoutMs` | 60 s / 5 s |
+| RS485 reply timeout, poll interval | Dashboard → Connections → RS485 | 500 ms / 1 s |
+
+If you change Modbus addresses, change them in **both** `firmware/src/register_map.h` and `MB` in `app.js`, then run `python firmware/tools/check_register_map.py`.
+
+## 🗺️ Modbus TCP map at a glance
+
+| Address | What | |
+| --- | --- | --- |
+| `0x0000`–`0x000A` | DI0–DI10 (discrete inputs) | same as Cytron |
+| `0x0100`–`0x0103` | DO0–DO3 (coils) | same as Cytron |
+| `0x0200` / `0x0210` | AN0/AN1 in mV / µA | same as Cytron |
+| `0x0300` / `0x0310` / `0x0400` | Counter enable / reset / 32-bit counts | same as Cytron (count bug fixed) |
+| `0x0220`–`0x0223` | AN0/AN1 scaled, float32 | new |
+| `0x0500` | Buzzer (coil) | new |
+| `0x1000`+ | RS485 points, float32 | new |
+
+Full table, MQTT payloads and notes: [`firmware/README.md`](firmware/README.md).
+
+## 📁 What's in here
+
+```
+index.html, app.js, styles.css   the dashboard (no build step, no dependencies)
+firmware/                        PlatformIO project for the IRIV IOC (RP2350A)
+  src/                           gateway: Ethernet, I/O, Modbus TCP, MQTT, RS485 on core 1
+  lib/                           our libraries
+  tools/                         register-map check and PC tests
+  data/                          put ioc_config.json here (example included)
+docs/                            README images and screenshots
+```
+
+## 🚧 Status
+
+**Experimental.** The firmware compiles for the IRIV IOC (`cytron_iriv_io_controller`), and the dashboard is covered by automated browser checks. It has **not yet been validated on real hardware**: test inputs, counters, analog readings (uncalibrated), outputs, RS485 timing and MQTT reconnects on the bench before connecting equipment. MQTT runs without TLS on this board, so use a broker on a trusted network.
+
+Check the wiring and load limits against the IRIV IOC datasheet: outputs are 50 V / 500 mA solid-state relays, and the analog mode must match the AN-IN MODE DIP switch.
+
+## 📜 License
+
+MIT, see [LICENSE](LICENSE). Each library in `firmware/lib/` carries its own MIT licence.

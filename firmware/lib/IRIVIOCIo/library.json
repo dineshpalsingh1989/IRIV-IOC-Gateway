@@ -1,0 +1,8 @@
+{
+  "name": "IRIVIOCIo",
+  "version": "0.1.0-alpha.1",
+  "description": "Digital/analog I/O, pulse counters and buzzer for the Cytron IRIV IO Controller (Arduino-Pico).",
+  "license": "MIT",
+  "frameworks": ["arduino"],
+  "platforms": ["raspberrypi"]
+}

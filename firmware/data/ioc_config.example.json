@@ -1,0 +1,708 @@
+{
+  "format": "iriv-ioc-gateway-config",
+  "version": 4,
+  "exportedAt": "2026-11-25T13:08:39.960Z",
+  "channels": [
+    {
+      "id": "DI0",
+      "kind": "digital-input",
+      "pin": 0,
+      "label": "Digital input 0",
+      "value": false,
+      "address": 0,
+      "topic": "",
+      "mqtt": true
+    },
+    {
+      "id": "DI1",
+      "kind": "digital-input",
+      "pin": 1,
+      "label": "Digital input 1",
+      "value": false,
+      "address": 1,
+      "topic": "",
+      "mqtt": true,
+      "counter": true
+    },
+    {
+      "id": "DI2",
+      "kind": "digital-input",
+      "pin": 2,
+      "label": "Digital input 2",
+      "value": false,
+      "address": 2,
+      "topic": "",
+      "mqtt": true
+    },
+    {
+      "id": "DI3",
+      "kind": "digital-input",
+      "pin": 3,
+      "label": "Digital input 3",
+      "value": false,
+      "address": 3,
+      "topic": "",
+      "mqtt": true,
+      "counter": false
+    },
+    {
+      "id": "DI4",
+      "kind": "digital-input",
+      "pin": 4,
+      "label": "Digital input 4",
+      "value": false,
+      "address": 4,
+      "topic": "",
+      "mqtt": true
+    },
+    {
+      "id": "DI5",
+      "kind": "digital-input",
+      "pin": 5,
+      "label": "Digital input 5",
+      "value": false,
+      "address": 5,
+      "topic": "",
+      "mqtt": true,
+      "counter": false
+    },
+    {
+      "id": "DI6",
+      "kind": "digital-input",
+      "pin": 6,
+      "label": "Digital input 6",
+      "value": false,
+      "address": 6,
+      "topic": "",
+      "mqtt": true
+    },
+    {
+      "id": "DI7",
+      "kind": "digital-input",
+      "pin": 7,
+      "label": "Digital input 7",
+      "value": false,
+      "address": 7,
+      "topic": "",
+      "mqtt": true,
+      "counter": false
+    },
+    {
+      "id": "DI8",
+      "kind": "digital-input",
+      "pin": 8,
+      "label": "Digital input 8",
+      "value": false,
+      "address": 8,
+      "topic": "",
+      "mqtt": true
+    },
+    {
+      "id": "DI9",
+      "kind": "digital-input",
+      "pin": 9,
+      "label": "Digital input 9",
+      "value": false,
+      "address": 9,
+      "topic": "",
+      "mqtt": true,
+      "counter": false
+    },
+    {
+      "id": "DI10",
+      "kind": "digital-input",
+      "pin": 10,
+      "label": "Digital input 10",
+      "value": false,
+      "address": 10,
+      "topic": "",
+      "mqtt": true
+    },
+    {
+      "id": "DO0",
+      "kind": "digital-output",
+      "pin": 12,
+      "label": "Digital output 0",
+      "value": false,
+      "address": 256,
+      "topic": "",
+      "cmdTopic": "",
+      "mqtt": true
+    },
+    {
+      "id": "DO1",
+      "kind": "digital-output",
+      "pin": 13,
+      "label": "Digital output 1",
+      "value": false,
+      "address": 257,
+      "topic": "",
+      "cmdTopic": "",
+      "mqtt": true
+    },
+    {
+      "id": "DO2",
+      "kind": "digital-output",
+      "pin": 14,
+      "label": "Digital output 2",
+      "value": false,
+      "address": 258,
+      "topic": "",
+      "cmdTopic": "",
+      "mqtt": true
+    },
+    {
+      "id": "DO3",
+      "kind": "digital-output",
+      "pin": 15,
+      "label": "Digital output 3",
+      "value": false,
+      "address": 259,
+      "topic": "",
+      "cmdTopic": "",
+      "mqtt": true
+    },
+    {
+      "id": "AN0",
+      "kind": "analog-input",
+      "pin": 26,
+      "label": "Analog input 0",
+      "value": 7.36,
+      "address": 0,
+      "topic": "",
+      "mqtt": true,
+      "mode": "0-10V",
+      "unit": "V",
+      "scaleLo": 0,
+      "scaleHi": 10
+    },
+    {
+      "id": "AN1",
+      "kind": "analog-input",
+      "pin": 27,
+      "label": "Analog input 1",
+      "value": 12.4,
+      "address": 1,
+      "topic": "",
+      "mqtt": true,
+      "mode": "4-20mA",
+      "unit": "bar",
+      "scaleLo": 0,
+      "scaleHi": 10
+    },
+    {
+      "id": "BZ",
+      "kind": "buzzer",
+      "pin": 11,
+      "label": "Buzzer",
+      "value": false,
+      "address": 1280,
+      "topic": "",
+      "cmdTopic": "",
+      "mqtt": true,
+      "trigger": "remote",
+      "compare": "above",
+      "threshold": 8,
+      "freq": 2700,
+      "pattern": "beep",
+      "silence": 0
+    }
+  ],
+  "network": {
+    "dhcp": false,
+    "ip": "192.168.1.50",
+    "subnet": "255.255.255.0",
+    "gateway": "192.168.1.1",
+    "dns": ""
+  },
+  "modbus": {
+    "enabled": true,
+    "port": "502",
+    "unit": "255",
+    "wordOrder": "ABCD"
+  },
+  "rs485": {
+    "enabled": false,
+    "baud": "9600",
+    "parity": "None",
+    "stopBits": "1",
+    "poll": "1000",
+    "timeout": "500",
+    "wordOrder": "ABCD",
+    "points": [
+      {
+        "id": "P1",
+        "kind": "rs485",
+        "name": "Flow",
+        "slave": 3,
+        "fn": "holding",
+        "reg": 0,
+        "type": "float32",
+        "scale": 1,
+        "unit": "",
+        "tcp": 4096,
+        "topic": "",
+        "mqtt": true
+      }
+    ]
+  },
+  "mqtt": {
+    "enabled": true,
+    "host": "192.168.1.10",
+    "port": "1883",
+    "client": "iriv-ioc-01",
+    "topic": "factory/line01/ioc01",
+    "user": "",
+    "pass": "",
+    "qos": "1",
+    "retain": true,
+    "interval": "5"
+  },
+  "map": {
+    "mqtt": [
+      {
+        "source": "DI0",
+        "publish": "factory/line01/ioc01/di0/state"
+      },
+      {
+        "source": "DI1",
+        "publish": "factory/line01/ioc01/di1/state"
+      },
+      {
+        "source": "DI2",
+        "publish": "factory/line01/ioc01/di2/state"
+      },
+      {
+        "source": "DI3",
+        "publish": "factory/line01/ioc01/di3/state"
+      },
+      {
+        "source": "DI4",
+        "publish": "factory/line01/ioc01/di4/state"
+      },
+      {
+        "source": "DI5",
+        "publish": "factory/line01/ioc01/di5/state"
+      },
+      {
+        "source": "DI6",
+        "publish": "factory/line01/ioc01/di6/state"
+      },
+      {
+        "source": "DI7",
+        "publish": "factory/line01/ioc01/di7/state"
+      },
+      {
+        "source": "DI8",
+        "publish": "factory/line01/ioc01/di8/state"
+      },
+      {
+        "source": "DI9",
+        "publish": "factory/line01/ioc01/di9/state"
+      },
+      {
+        "source": "DI10",
+        "publish": "factory/line01/ioc01/di10/state"
+      },
+      {
+        "source": "DO0",
+        "publish": "factory/line01/ioc01/do0/state",
+        "subscribe": "factory/line01/ioc01/do0/set"
+      },
+      {
+        "source": "DO1",
+        "publish": "factory/line01/ioc01/do1/state",
+        "subscribe": "factory/line01/ioc01/do1/set"
+      },
+      {
+        "source": "DO2",
+        "publish": "factory/line01/ioc01/do2/state",
+        "subscribe": "factory/line01/ioc01/do2/set"
+      },
+      {
+        "source": "DO3",
+        "publish": "factory/line01/ioc01/do3/state",
+        "subscribe": "factory/line01/ioc01/do3/set"
+      },
+      {
+        "source": "AN0",
+        "publish": "factory/line01/ioc01/an0/state"
+      },
+      {
+        "source": "AN1",
+        "publish": "factory/line01/ioc01/an1/state"
+      },
+      {
+        "source": "BZ",
+        "publish": "factory/line01/ioc01/buzzer/state",
+        "subscribe": "factory/line01/ioc01/buzzer/set"
+      },
+      {
+        "source": "P1",
+        "publish": "factory/line01/ioc01/rs485/p1/state"
+      }
+    ],
+    "modbusTcp": [
+      {
+        "source": "DI0",
+        "name": "Digital input 0",
+        "table": "discrete",
+        "address": 0,
+        "registers": 1,
+        "plcReference": "10001",
+        "format": "1 bit"
+      },
+      {
+        "source": "DI1",
+        "name": "Digital input 1",
+        "table": "discrete",
+        "address": 1,
+        "registers": 1,
+        "plcReference": "10002",
+        "format": "reads 0 while counting"
+      },
+      {
+        "source": "DI2",
+        "name": "Digital input 2",
+        "table": "discrete",
+        "address": 2,
+        "registers": 1,
+        "plcReference": "10003",
+        "format": "1 bit"
+      },
+      {
+        "source": "DI3",
+        "name": "Digital input 3",
+        "table": "discrete",
+        "address": 3,
+        "registers": 1,
+        "plcReference": "10004",
+        "format": "1 bit"
+      },
+      {
+        "source": "DI4",
+        "name": "Digital input 4",
+        "table": "discrete",
+        "address": 4,
+        "registers": 1,
+        "plcReference": "10005",
+        "format": "1 bit"
+      },
+      {
+        "source": "DI5",
+        "name": "Digital input 5",
+        "table": "discrete",
+        "address": 5,
+        "registers": 1,
+        "plcReference": "10006",
+        "format": "1 bit"
+      },
+      {
+        "source": "DI6",
+        "name": "Digital input 6",
+        "table": "discrete",
+        "address": 6,
+        "registers": 1,
+        "plcReference": "10007",
+        "format": "1 bit"
+      },
+      {
+        "source": "DI7",
+        "name": "Digital input 7",
+        "table": "discrete",
+        "address": 7,
+        "registers": 1,
+        "plcReference": "10008",
+        "format": "1 bit"
+      },
+      {
+        "source": "DI8",
+        "name": "Digital input 8",
+        "table": "discrete",
+        "address": 8,
+        "registers": 1,
+        "plcReference": "10009",
+        "format": "1 bit"
+      },
+      {
+        "source": "DI9",
+        "name": "Digital input 9",
+        "table": "discrete",
+        "address": 9,
+        "registers": 1,
+        "plcReference": "10010",
+        "format": "1 bit"
+      },
+      {
+        "source": "DI10",
+        "name": "Digital input 10",
+        "table": "discrete",
+        "address": 10,
+        "registers": 1,
+        "plcReference": "10011",
+        "format": "1 bit"
+      },
+      {
+        "source": "DO0",
+        "name": "Digital output 0",
+        "table": "coil",
+        "address": 256,
+        "registers": 1,
+        "plcReference": "00257",
+        "format": "1 bit"
+      },
+      {
+        "source": "DO1",
+        "name": "Digital output 1",
+        "table": "coil",
+        "address": 257,
+        "registers": 1,
+        "plcReference": "00258",
+        "format": "1 bit"
+      },
+      {
+        "source": "DO2",
+        "name": "Digital output 2",
+        "table": "coil",
+        "address": 258,
+        "registers": 1,
+        "plcReference": "00259",
+        "format": "1 bit"
+      },
+      {
+        "source": "DO3",
+        "name": "Digital output 3",
+        "table": "coil",
+        "address": 259,
+        "registers": 1,
+        "plcReference": "00260",
+        "format": "1 bit"
+      },
+      {
+        "source": "AN0",
+        "name": "Analog input 0 \u00b7 scaled (V)",
+        "table": "input",
+        "address": 544,
+        "registers": 2,
+        "plcReference": "30545\u201330546",
+        "format": "float32 \u00b7 NaN on fault"
+      },
+      {
+        "source": "AN0",
+        "name": "Analog input 0 \u00b7 terminal voltage",
+        "table": "input",
+        "address": 512,
+        "registers": 1,
+        "plcReference": "30513",
+        "format": "uint16 \u00b7 mV"
+      },
+      {
+        "source": "AN0",
+        "name": "Analog input 0 \u00b7 terminal current",
+        "table": "input",
+        "address": 528,
+        "registers": 1,
+        "plcReference": "30529",
+        "format": "uint16 \u00b7 \u00b5A"
+      },
+      {
+        "source": "AN1",
+        "name": "Analog input 1 \u00b7 scaled (bar)",
+        "table": "input",
+        "address": 546,
+        "registers": 2,
+        "plcReference": "30547\u201330548",
+        "format": "float32 \u00b7 NaN on fault"
+      },
+      {
+        "source": "AN1",
+        "name": "Analog input 1 \u00b7 terminal voltage",
+        "table": "input",
+        "address": 513,
+        "registers": 1,
+        "plcReference": "30514",
+        "format": "uint16 \u00b7 mV"
+      },
+      {
+        "source": "AN1",
+        "name": "Analog input 1 \u00b7 terminal current",
+        "table": "input",
+        "address": 529,
+        "registers": 1,
+        "plcReference": "30530",
+        "format": "uint16 \u00b7 \u00b5A"
+      },
+      {
+        "source": "BZ",
+        "name": "Buzzer \u00b7 remote command",
+        "table": "coil",
+        "address": 1280,
+        "registers": 1,
+        "plcReference": "01281",
+        "format": "1 bit"
+      },
+      {
+        "source": "DI1",
+        "name": "Digital input 1 \u00b7 pulse count",
+        "table": "input",
+        "address": 1024,
+        "registers": 2,
+        "plcReference": "31025\u201331026",
+        "format": "uint32 \u00b7 high word first"
+      },
+      {
+        "source": "DI1",
+        "name": "Digital input 1 \u00b7 counter enable",
+        "table": "coil",
+        "address": 768,
+        "registers": 1,
+        "plcReference": "00769",
+        "format": "1 bit"
+      },
+      {
+        "source": "DI1",
+        "name": "Digital input 1 \u00b7 counter reset",
+        "table": "coil",
+        "address": 784,
+        "registers": 1,
+        "plcReference": "00785",
+        "format": "write 1, clears itself"
+      },
+      {
+        "source": "DI3",
+        "name": "Digital input 3 \u00b7 pulse count",
+        "table": "input",
+        "address": 1026,
+        "registers": 2,
+        "plcReference": "31027\u201331028",
+        "format": "uint32 \u00b7 high word first"
+      },
+      {
+        "source": "DI3",
+        "name": "Digital input 3 \u00b7 counter enable",
+        "table": "coil",
+        "address": 769,
+        "registers": 1,
+        "plcReference": "00770",
+        "format": "1 bit"
+      },
+      {
+        "source": "DI3",
+        "name": "Digital input 3 \u00b7 counter reset",
+        "table": "coil",
+        "address": 785,
+        "registers": 1,
+        "plcReference": "00786",
+        "format": "write 1, clears itself"
+      },
+      {
+        "source": "DI5",
+        "name": "Digital input 5 \u00b7 pulse count",
+        "table": "input",
+        "address": 1028,
+        "registers": 2,
+        "plcReference": "31029\u201331030",
+        "format": "uint32 \u00b7 high word first"
+      },
+      {
+        "source": "DI5",
+        "name": "Digital input 5 \u00b7 counter enable",
+        "table": "coil",
+        "address": 770,
+        "registers": 1,
+        "plcReference": "00771",
+        "format": "1 bit"
+      },
+      {
+        "source": "DI5",
+        "name": "Digital input 5 \u00b7 counter reset",
+        "table": "coil",
+        "address": 786,
+        "registers": 1,
+        "plcReference": "00787",
+        "format": "write 1, clears itself"
+      },
+      {
+        "source": "DI7",
+        "name": "Digital input 7 \u00b7 pulse count",
+        "table": "input",
+        "address": 1030,
+        "registers": 2,
+        "plcReference": "31031\u201331032",
+        "format": "uint32 \u00b7 high word first"
+      },
+      {
+        "source": "DI7",
+        "name": "Digital input 7 \u00b7 counter enable",
+        "table": "coil",
+        "address": 771,
+        "registers": 1,
+        "plcReference": "00772",
+        "format": "1 bit"
+      },
+      {
+        "source": "DI7",
+        "name": "Digital input 7 \u00b7 counter reset",
+        "table": "coil",
+        "address": 787,
+        "registers": 1,
+        "plcReference": "00788",
+        "format": "write 1, clears itself"
+      },
+      {
+        "source": "DI9",
+        "name": "Digital input 9 \u00b7 pulse count",
+        "table": "input",
+        "address": 1032,
+        "registers": 2,
+        "plcReference": "31033\u201331034",
+        "format": "uint32 \u00b7 high word first"
+      },
+      {
+        "source": "DI9",
+        "name": "Digital input 9 \u00b7 counter enable",
+        "table": "coil",
+        "address": 772,
+        "registers": 1,
+        "plcReference": "00773",
+        "format": "1 bit"
+      },
+      {
+        "source": "DI9",
+        "name": "Digital input 9 \u00b7 counter reset",
+        "table": "coil",
+        "address": 788,
+        "registers": 1,
+        "plcReference": "00789",
+        "format": "write 1, clears itself"
+      },
+      {
+        "source": "P1",
+        "name": "Flow",
+        "table": "input",
+        "address": 4096,
+        "registers": 2,
+        "plcReference": "34097\u201334098",
+        "format": "float32 \u00b7 scaled \u00b7 NaN when no reply"
+      },
+      {
+        "source": "IOC",
+        "name": "Model \"IOC\"",
+        "table": "input",
+        "address": 3840,
+        "registers": 2,
+        "plcReference": "33841\u201333842",
+        "format": "ASCII"
+      },
+      {
+        "source": "IOC",
+        "name": "Firmware version",
+        "table": "input",
+        "address": 3856,
+        "registers": 3,
+        "plcReference": "33857\u201333859",
+        "format": "major, minor, patch"
+      }
+    ]
+  }
+}
