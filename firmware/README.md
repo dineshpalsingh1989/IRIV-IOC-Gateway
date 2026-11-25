@@ -34,6 +34,8 @@ The USB setup protocol it uses (115200 baud, one line per command; replies are `
 | --- | --- |
 | `HELLO` | `{"type":"hello","product":"iriv-ioc-gateway","version","host","ip","config","chip","chipRevision","builtFor","board","uid","rtc"}`. `chip` is read from the silicon: `RP2350A` (QFN60, as on the IRIV IOC) or `RP2350B`. `rtc` is `{"state":"ok","time":<unix UTC>}`, `{"state":"lost"}` (the PCF85063A stopped while unpowered: CR2032 flat or missing, or never set) or `{"state":"missing"}`. |
 | `STATUS` | `{"type":"status", ip, link, online, modbus{clients,requests}, mqtt{connected}, rs485[{id,value,errors}], rtc}` |
+| `SELFTEST` | `{"type":"selftest","ethernetChip","link","ip","rtc","flash":{mounted,total,used},"settings":{saved,note},"temperature","di":[11],"an":[2 volts]}`. Raw facts; the installer judges pass or fail. `ethernetChip` is false when the W5500 did not answer at start-up. |
+| `IDENTIFY` | beeps and fast-blinks the USR LED for 3 s; replies `{"type":"identify"}` |
 | `TIME <unix UTC>` | sets the RTC and clears its lost flag; replies `{"type":"time","rtc":{...}}`. The installer sends this computer's time when the clock is lost or more than 2 s off. |
 | `CONFIG <bytes>` then exactly that many bytes of JSON | `{"type":"saved"}`, then a restart. The file is checked with the real loader before it replaces the old one. |
 | `REBOOT` / `BOOTLOADER` | restart / restart into install mode (RP2350 drive) |

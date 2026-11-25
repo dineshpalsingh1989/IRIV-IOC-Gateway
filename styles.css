@@ -442,5 +442,7 @@ tr.flash td { animation: flash 1.6s ease-out; }
 .detected .ok .i { color: var(--green); }
 .detected .bad .i { color: var(--danger); }
 .detected .bad dd { color: var(--danger); }
+.detected .info .i { color: var(--muted); }
+.check-actions { margin-top: 12px; }
 .detected code { font: 12px var(--mono); }
 @media (max-width: 760px) { .detected dl div { grid-template-columns: 1fr; gap: 2px; } }

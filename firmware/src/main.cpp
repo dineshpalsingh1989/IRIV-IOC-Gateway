@@ -27,6 +27,10 @@ static irivioc::Ethernet ethernet(PIN_W5500_CS, SPI, PIN_W5500_INT);
 static irivioc::Rtc rtc; // PCF85063A on Wire (GP16/GP17)
 static char hostname[32];
 static volatile bool ready = false; // core 1 waits for setup() to finish
+// For SELFTEST: what happened at boot.
+static bool ethernetStarted = false, fsMounted = false;
+static String settingsNote;          // why the settings file was not (fully) loaded
+static uint32_t identifyUntil = 0;   // IDENTIFY: beep and fast blink until this millis()
 
 // ---- Modbus TCP map storage ----
 static uint8_t diBits[11], doBits[4], buzzerBit[1], counterEnable[5], counterReset[5];
@@ -114,7 +118,8 @@ static void updateIo(uint32_t now) {
     bool toneOn = false;
     const bool wanted = iriv::buzzerWanted(cfg.buzzer, io.inputs(), analogValue, analogFault, buzzerBit[0]);
     buzzerSounding = buzzerState.update(wanted, now, cfg.buzzer, toneOn);
-    io.buzzer(toneOn, cfg.buzzer.frequency);
+    if (int32_t(identifyUntil - now) > 0) io.buzzer(now / 250 % 2 == 0, 2700);
+    else io.buzzer(toneOn, cfg.buzzer.frequency);
 
     mutex_enter_blocking(&pointLock);
     for (uint8_t p = 0; p < cfg.pointCount; ++p)
@@ -217,7 +222,8 @@ static void serviceMqtt(uint32_t now) {
 
 // ---------------------------------------------------------------------------------------------
 // USB setup protocol, used by the browser installer over Web Serial.
-// In:  HELLO | STATUS | CONFIG <bytes> (then exactly that many bytes of JSON) | TIME <unix UTC> | REBOOT | BOOTLOADER
+// In:  HELLO | STATUS | SELFTEST | IDENTIFY | CONFIG <bytes> (then exactly that many bytes of JSON) |
+//      TIME <unix UTC> | REBOOT | BOOTLOADER
 // Out: one line per reply, "@IOC " + JSON, so replies stand apart from log messages.
 
 static const char* ConfigPath = "/ioc_config.json";
@@ -317,6 +323,29 @@ static void sendStatus() {
     replyJson(d);
 }
 
+// Raw facts for the installer's controller check; the installer decides pass or fail.
+static void sendSelfTest() {
+    DynamicJsonDocument d(1024);
+    d["type"] = "selftest";
+    d["ethernetChip"] = ethernetStarted; // begin() fails when the W5500 does not answer over SPI
+    d["link"] = ethernet.linkUp();
+    d["ip"] = ethernet.localIP().toString();
+    addRtc(d);
+    JsonObject fs = d.createNestedObject("flash");
+    fs["mounted"] = fsMounted;
+    FSInfo info;
+    if (fsMounted && LittleFS.info(info)) { fs["total"] = uint32_t(info.totalBytes); fs["used"] = uint32_t(info.usedBytes); }
+    JsonObject st = d.createNestedObject("settings");
+    st["saved"] = fsMounted && LittleFS.exists(ConfigPath);
+    if (settingsNote.length()) st["note"] = settingsNote;
+    d["temperature"] = analogReadTemp();
+    JsonArray di = d.createNestedArray("di");
+    for (uint8_t i = 0; i < 11; ++i) di.add(io.input(i));
+    JsonArray an = d.createNestedArray("an");
+    for (uint8_t i = 0; i < 2; ++i) an.add(io.terminalVolts(i));
+    replyJson(d);
+}
+
 // Streams the upload into a temporary file, checks it with the real loader, then swaps it in
 // and restarts. The working settings stay untouched until the new file has passed the check.
 static void receiveConfig(long size) {
@@ -371,6 +400,8 @@ static void serviceUsbCommands() {
         used = 0;
         if (!strcmp(line, "HELLO")) sendHello();
         else if (!strcmp(line, "STATUS")) sendStatus();
+        else if (!strcmp(line, "SELFTEST")) sendSelfTest();
+        else if (!strcmp(line, "IDENTIFY")) { identifyUntil = millis() + 3000; StaticJsonDocument<64> d; d["type"] = "identify"; replyJson(d); }
         else if (!strncmp(line, "CONFIG ", 7)) receiveConfig(atol(line + 7));
         else if (!strncmp(line, "TIME ", 5)) setClock(strtoul(line + 5, nullptr, 10));
         else if (!strcmp(line, "REBOOT")) { Serial.flush(); delay(100); rp2040.reboot(); }
@@ -397,9 +428,11 @@ void setup() {
     snprintf(hostname, sizeof(hostname), "IRIV-IOC_%s", id + strlen(id) - 6); // same style as Cytron's firmware
 
     String error;
-    if (!LittleFS.begin()) error = "LittleFS mount failed, using defaults"; // never formats
-    else loadConfig(ConfigPath, cfg, error);
+    fsMounted = LittleFS.begin(); // never formats
+    if (!fsMounted) error = "LittleFS mount failed, using defaults";
+    else if (LittleFS.exists(ConfigPath)) loadConfig(ConfigPath, cfg, error); // no file = defaults, not an error
     if (error.length()) log(error.c_str());
+    settingsNote = error;
 
     // Hold USER at power-up for a fixed address, for a laptop plugged in directly.
     if (io.button()) {
@@ -423,7 +456,8 @@ void setup() {
     SPI.setRX(PIN_W5500_MISO);
     SPI.setTX(PIN_W5500_MOSI);
     SPI.setSCK(PIN_W5500_SCK);
-    if (!ethernet.begin(hostname, cfg.network)) log("Ethernet start failed");
+    ethernetStarted = ethernet.begin(hostname, cfg.network);
+    if (!ethernetStarted) log("Ethernet start failed");
 
     if (cfg.modbusEnabled) modbus.begin(cfg.modbusPort, cfg.modbusUnit);
     mqtt.setServer(cfg.mqttHost, cfg.mqttPort);
@@ -448,7 +482,7 @@ void loop() {
     serviceMqtt(now);
     serviceUsbCommands();
     if (int32_t(now - nextBlink) >= 0) { // blinking USR LED = loop alive, as on Cytron's firmware
-        nextBlink = now + 500;
+        nextBlink = now + (int32_t(identifyUntil - now) > 0 ? 100 : 500);
         static bool led = false;
         io.led(led = !led);
     }

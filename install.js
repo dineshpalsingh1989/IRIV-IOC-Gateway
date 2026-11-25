@@ -11,6 +11,7 @@ let manifest = null;   // firmware/manifest.json: version + one build per proces
 let customFile = null; // { name, bytes } picked by the user
 let link = null;       // open IocLink
 let statusTimer = null;
+let check = null;      // last controller check: { result (SELFTEST reply), at } or { unsupported: version }
 const detected = {};   // what we learned about the connected device: usb, drive, hello, other (non-gateway firmware)
 
 // Chip a .uf2 is built for, by its UF2 family ID. The bootloader ignores files for another chip.
@@ -97,7 +98,50 @@ function renderDetected() {
   const build = chip && buildFor(chip);
   if (chip) rows.push(['Firmware', build ? `IRIV IOC Gateway ${escapeHtml(manifest.version)} for <b>${escapeHtml(build.variant || build.chip)}</b> matches this ${escapeHtml(chip)}` : `No build for ${escapeHtml(chip)}: this firmware is for ${escapeHtml((manifest?.builds || []).map(b => b.variant || b.chip).join(', ') || 'the IRIV IOC (RP2350A)')}`, build ? 'ok' : 'bad']);
   $('#inst-detected').hidden = !rows.length;
-  $('#inst-detected').innerHTML = `<small>Detected device</small><dl>${rows.map(([k, v, s]) => `<div class="${s}"><dt>${k}</dt><dd>${icon(s === 'ok' ? 'check' : 'alert')}<span>${v}</span></dd></div>`).join('')}</dl>`;
+  $('#inst-detected').innerHTML = rowsHtml('Detected device', rows);
+}
+
+// rows: [label, html, 'ok' | 'bad' | 'info']
+const rowsHtml = (title, rows) => `<small>${title}</small><dl>${rows.map(([k, v, s]) => `<div class="${s}"><dt>${k}</dt><dd>${icon(s === 'ok' ? 'check' : s === 'info' ? 'info' : 'alert')}<span>${v}</span></dd></div>`).join('')}</dl>`;
+
+// Judges the facts the controller reports for SELFTEST.
+function checkRows(t) {
+  const fs = t.flash || {}, st = t.settings || {};
+  const leds = `<span class="leds">${t.di.map((on, i) => `<span class="led ${on ? 'on' : ''}" title="DI${i} ${on ? 'on' : 'off'}"><i></i>${i}</span>`).join('')}</span>`;
+  return [
+    ['Ethernet chip', t.ethernetChip ? 'W5500 answers' : 'W5500 not answering: Ethernet will not work', t.ethernetChip ? 'ok' : 'bad'],
+    ['Ethernet port', t.link ? `Cable in · ${t.ip !== '0.0.0.0' ? escapeHtml(t.ip) : 'no address yet'}` : 'No cable: plug one in to test the port', t.link ? 'ok' : 'info'],
+    ['Clock', escapeHtml(clockText(t.rtc)), t.rtc.state === 'ok' ? 'ok' : 'bad'],
+    ['Flash storage', !fs.mounted ? 'Cannot mount: settings cannot be saved' : fs.total ? `${kb(fs.total - fs.used)} free of ${kb(fs.total)}` : 'Mounted', fs.mounted ? 'ok' : 'bad'],
+    ['Settings', !st.saved ? 'None yet: running on defaults' : st.note ? `Saved, but: ${escapeHtml(st.note)}` : 'Saved and loaded', !st.saved ? 'info' : st.note ? 'bad' : 'ok'],
+    ['Chip temperature', `${t.temperature.toFixed(1)} °C`, t.temperature < 85 ? 'ok' : 'bad'],
+    ['Analog inputs', `AN0 ${t.an[0].toFixed(2)} V · AN1 ${t.an[1].toFixed(2)} V`, 'info'],
+    ['Digital inputs', `${leds} <small class="muted">switch an input on: it lights up here</small>`, 'info']
+  ];
+}
+const checkProblems = () => check?.result ? checkRows(check.result).filter(r => r[2] === 'bad').map(r => r[0]) : [];
+
+function renderCheck() {
+  $('#inst-check').hidden = !check;
+  if (!check) return;
+  $('#inst-identify').hidden = !check.result;
+  if (!check.result) {
+    $('#inst-check-rows').innerHTML = rowsHtml('Controller check', [['Self-test', `Firmware ${escapeHtml(check.unsupported)} has no self-test (it came in 0.3.0). Install the update, then connect again to check the hardware.`, 'info']]);
+    return;
+  }
+  const problems = checkProblems().length;
+  $('#inst-check-rows').innerHTML = rowsHtml(`Controller check · ${problems ? `${problems} problem${problems > 1 ? 's' : ''}` : 'no problems found'} · ${new Date(check.at).toLocaleTimeString()}`, checkRows(check.result));
+}
+
+// Runs the controller's self-test over l (an open IocLink).
+async function runChecks(l) {
+  try {
+    check = { result: await l.request('SELFTEST', ['selftest'], 3000), at: Date.now() };
+  } catch (e) {
+    if (!/unknown command/.test(e.message)) throw e;
+    check = { unsupported: detected.hello?.version || 'on this controller' };
+  }
+  renderCheck();
 }
 
 // ---------- USB serial link ----------
@@ -230,7 +274,8 @@ async function firmwareFor(chip) {
 }
 
 async function enterInstallMode() {
-  const port = await choosePort();
+  const port = link ? link.port : await choosePort();
+  if (link) await disconnect(); // reopened below
   detected.usb = usbInfo(port);
   renderDetected();
   // Rebooting into install mode only makes sense on RP2040/RP2350 boards: stop on anything else.
@@ -239,15 +284,26 @@ async function enterInstallMode() {
   }
   // Ask our gateway first; any Arduino-Pico firmware also reboots on a 1200-baud open and close.
   const tryLink = new IocLink(port);
+  let gateway = false;
   try {
     await tryLink.open();
     detected.hello = await tryLink.request('HELLO', ['hello'], 1500);
+    gateway = true;
+  } catch { /* not our gateway */ }
+  if (gateway) {
     renderDetected();
     renderVersion();
+    // Check the hardware before replacing the firmware.
+    await runChecks(tryLink).catch(e => logLine(`Controller check failed: ${e.message}`));
+    const problems = checkProblems();
+    if (problems.length && !confirm(`The controller check found problems: ${problems.join(', ')}.\n\nPut it in install mode anyway?`)) {
+      await tryLink.close();
+      return;
+    }
     await tryLink.send('BOOTLOADER');
     await wait(200);
     await tryLink.close();
-  } catch {
+  } else {
     await tryLink.close();
     await port.open({ baudRate: 1200 });
     await port.setSignals({ dataTerminalReady: false }).catch(() => {});
@@ -314,6 +370,7 @@ async function connect(port) {
   detected.hello = hello;
   detected.other = null;
   await syncClock(hello);
+  await runChecks(link).catch(e => logLine(`Controller check failed: ${e.message}`));
   renderDetected();
   renderVersion();
   setDevice(`${hello.host} · ${hello.chip || 'chip ?'} · firmware ${hello.version}`, true);
@@ -387,6 +444,7 @@ async function refreshStatus() {
   ];
   const pts = s.rs485.length ? `<table class="channel-table mini"><thead><tr><th>Point</th><th>Value</th><th>Errors</th></tr></thead><tbody>${s.rs485.map(p => `<tr><td>${escapeHtml(p.id)}</td><td>${p.value === null ? '<span class="badge danger">no reply</span>' : num(p.value)}</td><td>${p.errors}</td></tr>`).join('')}</tbody></table>` : '';
   $('#inst-status').innerHTML = `<dl class="kv">${rows.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('')}</dl>${pts}`;
+  if (link && check?.result) await runChecks(link).catch(() => {}); // keeps the digital inputs live
 }
 
 // ---------- wiring ----------
@@ -402,6 +460,10 @@ guard('#inst-bootloader', enterInstallMode);
 guard('#inst-write', writeFirmware);
 guard('#inst-connect', async () => connect(await choosePort()));
 guard('#inst-send', sendSettings);
+guard('#inst-identify', async () => {
+  if (!link) throw new Error('Connect over USB first (step 2)');
+  await link.request('IDENTIFY', ['identify'], 2500);
+});
 $('#inst-file').addEventListener('change', async e => {
   const file = e.target.files[0];
   if (!file) return;

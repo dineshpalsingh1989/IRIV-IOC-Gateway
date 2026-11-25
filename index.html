@@ -338,13 +338,17 @@
         <div class="notice" role="note" id="inst-browser" hidden><svg class="i notice-icon" aria-hidden="true"><use href="#i-alert"/></svg><span><b>Use Chrome or Edge on a computer.</b> This browser cannot talk to USB devices. You can still download the firmware and copy it to the controller by hand.</span></div>
 
         <div class="detected" id="inst-detected" hidden></div>
+        <div class="detected" id="inst-check" hidden>
+          <div id="inst-check-rows"></div>
+          <div class="btn-row check-actions"><button type="button" class="button button-secondary" id="inst-identify"><svg class="i" aria-hidden="true"><use href="#i-bell"/></svg>Beep and blink</button><small class="muted">Which controller is this? It beeps and flashes its USR LED for 3 s.</small></div>
+        </div>
 
         <ol class="install-steps">
           <li class="panel step-card">
             <div class="step-head"><span class="step-num">1</span><div><h2>Install the firmware</h2><p id="inst-fw-info">Looking for the latest firmware…</p></div></div>
             <div class="step-body">
               <div class="step-text">
-                <p><b>Put the controller in install mode.</b> If it already runs this gateway (or any Arduino firmware), click the button. Otherwise do it by hand: hold <b>BOOT</b>, press and release <b>RESET</b>, then release BOOT. Both are pinholes on the front: use a paperclip. A new or empty controller is already in install mode when you plug it in: it shows up as the RP2350 drive, not as a USB port.</p>
+                <p><b>Put the controller in install mode.</b> If it already runs this gateway (or any Arduino firmware), click the button. When the gateway is on it, the installer checks the hardware first and asks before going on if it finds a problem. Otherwise do it by hand: hold <b>BOOT</b>, press and release <b>RESET</b>, then release BOOT. Both are pinholes on the front: use a paperclip. A new or empty controller is already in install mode when you plug it in: it shows up as the RP2350 drive, not as a USB port.</p>
                 <div class="btn-row">
                   <button type="button" class="button button-secondary" id="inst-bootloader"><svg class="i" aria-hidden="true"><use href="#i-usb"/></svg>Put in install mode</button>
                 </div>
