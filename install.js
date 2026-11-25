@@ -7,9 +7,69 @@
 const FIRMWARE_DIR = 'firmware/';
 const hasSerial = 'serial' in navigator;
 const hasDirectoryPicker = 'showDirectoryPicker' in window;
-let firmware = null;   // { name, bytes, version } once known
+let manifest = null;   // firmware/manifest.json: version + one build per processor
+let customFile = null; // { name, bytes } picked by the user
 let link = null;       // open IocLink
 let statusTimer = null;
+const detected = {};   // what we learned about the connected device: usb, drive, hello
+
+// Chip a .uf2 is built for, by its UF2 family ID. The bootloader ignores files for another chip.
+const UF2_FAMILIES = { 0xe48bff56: 'RP2040', 0xe48bff59: 'RP2350', 0xe48bff5a: 'RP2350', 0xe48bff5b: 'RP2350' };
+// USB vendor IDs seen on a serial port, to recognise what was plugged in.
+const USB_VENDORS = {
+  0x2e8a: { name: 'Raspberry Pi RP2040/RP2350', rp: true },
+  0x239a: { name: 'Adafruit / CircuitPython', rp: true },
+  0x303a: { name: 'Espressif ESP32' },
+  0x10c4: { name: 'Silicon Labs CP210x USB-serial (often an ESP32 board)' },
+  0x1a86: { name: 'WCH CH340 USB-serial (often an ESP32 or Arduino board)' },
+  0x0403: { name: 'FTDI USB-serial adapter' },
+  0x2341: { name: 'Arduino' }
+};
+const hex4 = n => n.toString(16).toUpperCase().padStart(4, '0');
+
+function usbInfo(port) {
+  const { usbVendorId: vid, usbProductId: pid } = port.getInfo?.() || {};
+  if (vid === undefined) return null; // e.g. a Bluetooth serial port
+  return { vid, pid, ...(USB_VENDORS[vid] || { name: 'Unknown USB device' }) };
+}
+
+// Reads the chip from a .uf2 file: every block carries the same family ID.
+function uf2Chip(bytes) {
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  if (bytes.length < 512 || view.getUint32(0, true) !== 0x0a324655 || view.getUint32(4, true) !== 0x9e5d5157) return null;
+  const flags = view.getUint32(8, true);
+  return flags & 0x2000 ? UF2_FAMILIES[view.getUint32(28, true)] || `unknown family 0x${view.getUint32(28, true).toString(16)}` : 'no family ID';
+}
+
+// INFO_UF2.TXT on an install-mode drive names the chip, e.g. "Model: Raspberry Pi RP2350 / Board-ID: RP2350".
+function parseDriveInfo(text) {
+  const model = /Model:\s*(.+)/i.exec(text)?.[1].trim() || '';
+  const boardId = /Board-ID:\s*(.+)/i.exec(text)?.[1].trim() || '';
+  const both = `${model} ${boardId}`;
+  const chip = /RP2350/i.test(both) ? 'RP2350' : /RPI-RP2|RP2040|\bRP2\b/i.test(both) ? 'RP2040' : null;
+  return { model, boardId, chip };
+}
+
+function buildFor(chip) {
+  return manifest?.builds?.find(b => b.chip === chip) || null;
+}
+
+function renderDetected() {
+  const rows = [];
+  const { usb, drive, hello } = detected;
+  if (usb) rows.push(['USB', `${escapeHtml(usb.name)} <code>${hex4(usb.vid)}:${hex4(usb.pid)}</code>`, usb.rp ? 'ok' : 'bad']);
+  if (drive) rows.push(['Install drive', `${escapeHtml(drive.model || 'unknown model')} <small class="muted">Board-ID ${escapeHtml(drive.boardId || '?')}</small>`, drive.chip ? 'ok' : 'bad']);
+  if (hello) {
+    const match = hello.chip === hello.builtFor;
+    rows.push(['Processor', `${escapeHtml(hello.chip || '?')}${hello.chipRevision !== undefined ? ` <small class="muted">revision ${hello.chipRevision}</small>` : ''}`, match ? 'ok' : 'bad']);
+    rows.push(['Board', `${escapeHtml(hello.board || '?')} <small class="muted">firmware ${escapeHtml(hello.version)} · ${escapeHtml(hello.host)}</small>`, 'ok']);
+  }
+  const chip = hello?.chip?.replace(/[AB]$/, '') || drive?.chip;
+  const build = chip && buildFor(chip);
+  if (chip) rows.push(['Firmware', build ? `IRIV IOC Gateway ${escapeHtml(manifest.version)} for <b>${escapeHtml(build.variant || build.chip)}</b> matches this ${escapeHtml(chip)}` : `No build for ${escapeHtml(chip)}: this firmware is for ${escapeHtml((manifest?.builds || []).map(b => b.variant || b.chip).join(', ') || 'the IRIV IOC (RP2350A)')}`, build ? 'ok' : 'bad']);
+  $('#inst-detected').hidden = !rows.length;
+  $('#inst-detected').innerHTML = `<small>Detected device</small><dl>${rows.map(([k, v, s]) => `<div class="${s}"><dt>${k}</dt><dd>${icon(s === 'ok' ? 'check' : 'alert')}<span>${v}</span></dd></div>`).join('')}</dl>`;
+}
 
 // ---------- USB serial link ----------
 class IocLink {
@@ -102,11 +162,14 @@ async function choosePort() {
 // ---------- firmware ----------
 async function loadFirmwareInfo() {
   try {
-    const manifest = await (await fetch(`${FIRMWARE_DIR}manifest.json`, { cache: 'no-store' })).json();
-    firmware = { name: manifest.file, url: FIRMWARE_DIR + manifest.file, version: manifest.version };
-    $('#inst-download').href = firmware.url;
-    $('#inst-fw-info').innerHTML = `Version <b>${escapeHtml(manifest.version)}</b> · ${kb(manifest.size)} · built ${escapeHtml(manifest.built.slice(0, 10))} · SHA-256 <code title="${escapeHtml(manifest.sha256)}">${escapeHtml(manifest.sha256.slice(0, 12))}…</code>`;
+    manifest = await (await fetch(`${FIRMWARE_DIR}manifest.json`, { cache: 'no-store' })).json();
+    // Older manifests had one build at the top level (always the IRIV IOC's RP2350).
+    manifest.builds ||= [{ chip: 'RP2350', variant: 'RP2350A', board: manifest.board, file: manifest.file, size: manifest.size, sha256: manifest.sha256 }];
+    const main = manifest.builds[0];
+    $('#inst-download').href = FIRMWARE_DIR + main.file;
+    $('#inst-fw-info').innerHTML = `Version <b>${escapeHtml(manifest.version)}</b> for ${manifest.builds.map(b => `<b>${escapeHtml(b.boardName || b.board)}</b> (${escapeHtml(b.variant || b.chip)})`).join(', ')} · ${kb(main.size)} · built ${escapeHtml(manifest.built.slice(0, 10))} · SHA-256 <code title="${escapeHtml(main.sha256)}">${escapeHtml(main.sha256.slice(0, 12))}…</code>`;
   } catch {
+    manifest = null;
     // Opened from disk or the site is not built: point to the published installer instead.
     $('#inst-download').href = 'https://github.com/dineshpalsingh1989/IRIV-IOC-Gateway/releases/latest';
     $('#inst-download').removeAttribute('download');
@@ -114,17 +177,35 @@ async function loadFirmwareInfo() {
   }
 }
 
-async function firmwareBytes() {
-  if (firmware?.bytes) return firmware.bytes;
-  if (!firmware?.url) throw new Error('No firmware file yet: download it, or pick a .uf2 file from this computer.');
-  const response = await fetch(firmware.url);
+// Firmware for the chip on the drive: the user's own file (checked) or the matching published build.
+async function firmwareFor(chip) {
+  if (customFile) {
+    const fileChip = uf2Chip(customFile.bytes);
+    if (fileChip !== chip) throw new Error(`${customFile.name} is built for ${fileChip || 'an unknown chip'}, but this controller has a ${chip}. Nothing was written.`);
+    return customFile;
+  }
+  const build = buildFor(chip);
+  if (!build) {
+    const offered = (manifest?.builds || []).map(b => b.variant || b.chip).join(', ');
+    throw new Error(manifest
+      ? `This device has a ${chip}; the IRIV IOC Gateway firmware is for ${offered}. Nothing was written.`
+      : 'No firmware file yet: download it, or pick a .uf2 file from this computer.');
+  }
+  const response = await fetch(FIRMWARE_DIR + build.file);
   if (!response.ok) throw new Error(`Could not download the firmware (${response.status})`);
-  firmware.bytes = new Uint8Array(await response.arrayBuffer());
-  return firmware.bytes;
+  const bytes = new Uint8Array(await response.arrayBuffer());
+  if (uf2Chip(bytes) !== chip) throw new Error('The downloaded firmware does not match its description. Nothing was written.');
+  return { name: build.file, bytes };
 }
 
 async function enterInstallMode() {
   const port = await choosePort();
+  detected.usb = usbInfo(port);
+  renderDetected();
+  // Rebooting into install mode only makes sense on RP2040/RP2350 boards: stop on anything else.
+  if (detected.usb && !detected.usb.rp) {
+    throw new Error(`That port is a ${detected.usb.name}, not an IRIV IO Controller (RP2350). Pick the controller's port.`);
+  }
   // Ask our gateway first; any Arduino-Pico firmware also reboots on a 1200-baud open and close.
   const tryLink = new IocLink(port);
   try {
@@ -144,15 +225,19 @@ async function enterInstallMode() {
 
 async function writeFirmware() {
   if (!hasDirectoryPicker) throw new Error('This browser cannot write to drives. Download the .uf2 and drag it onto the RP2350 drive.');
-  const bytes = await firmwareBytes();
   const dir = await window.showDirectoryPicker({ id: 'rp2350', mode: 'readwrite' });
-  // Every RP2040/RP2350 install-mode drive has this file: refuse other folders so nothing else is overwritten.
-  try { await dir.getFileHandle('INFO_UF2.TXT'); } catch {
+  // Every RP2040/RP2350 install-mode drive has this file, naming the chip: refuse anything else.
+  let info;
+  try { info = await (await (await dir.getFileHandle('INFO_UF2.TXT')).getFile()).text(); } catch {
     throw new Error('That is not the RP2350 drive (no INFO_UF2.TXT). Put the controller in install mode and pick its drive.');
   }
+  detected.drive = parseDriveInfo(info);
+  renderDetected();
+  if (!detected.drive.chip) throw new Error(`Unrecognised install drive (${detected.drive.model || 'no model'}). Nothing was written.`);
+  const firmware = await firmwareFor(detected.drive.chip); // same processor as the drive, or an error
   const file = await dir.getFileHandle(firmware.name || 'iriv-ioc-gateway.uf2', { create: true });
   const writable = await file.createWritable();
-  await writable.write(bytes);
+  await writable.write(firmware.bytes);
   try {
     await writable.close();
     toast('Firmware copied. The controller restarts by itself in a few seconds');
@@ -178,11 +263,17 @@ function renderSummary() {
 
 async function connect(port) {
   if (link) await disconnect();
+  detected.usb = usbInfo(port);
   link = new IocLink(port);
   await link.open();
   const hello = await link.request('HELLO', ['hello'], 2500);
-  setDevice(`${hello.host} · firmware ${hello.version}`, true);
-  logLine(`Connected to ${hello.host}`);
+  detected.hello = hello;
+  renderDetected();
+  setDevice(`${hello.host} · ${hello.chip || 'chip ?'} · firmware ${hello.version}`, true);
+  logLine(`Connected to ${hello.host} (${hello.chip}, board ${hello.board})`);
+  if (hello.chip && hello.builtFor && hello.chip !== hello.builtFor) {
+    toast(`Warning: this controller has a ${hello.chip}; the firmware is built for ${hello.builtFor}. Pins may not match.`);
+  }
   refreshStatus();
   statusTimer = setInterval(refreshStatus, 3000);
 }
@@ -252,8 +343,15 @@ guard('#inst-send', sendSettings);
 $('#inst-file').addEventListener('change', async e => {
   const file = e.target.files[0];
   if (!file) return;
-  firmware = { name: 'iriv-ioc-gateway.uf2', bytes: new Uint8Array(await file.arrayBuffer()), version: 'from file' };
-  $('#inst-file-info').textContent = `${file.name} · ${kb(file.size)} will be written`;
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const chip = uf2Chip(bytes);
+  if (!chip || !/^RP2(040|350)$/.test(chip)) {
+    customFile = null;
+    $('#inst-file-info').textContent = `${file.name} is not a usable .uf2 firmware file (${chip || 'not UF2'})`;
+    return;
+  }
+  customFile = { name: 'iriv-ioc-gateway.uf2', bytes };
+  $('#inst-file-info').textContent = `${file.name} · ${kb(file.size)} · built for ${chip}. It will only be written to a ${chip}.`;
 });
 if (hasSerial) navigator.serial.addEventListener('disconnect', e => { if (link && e.target === link.port) disconnect(); });
 window.addEventListener('hashchange', () => { if (location.hash === '#install') renderSummary(); });

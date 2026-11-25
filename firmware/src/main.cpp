@@ -9,6 +9,7 @@
 #include <WiFi.h>
 #include <pico/mutex.h>
 #include <pico/unique_id.h>
+#include <hardware/structs/sysinfo.h>
 
 #include <IRIVIOCHardware.h>
 #include <IRIVIOCIo.h>
@@ -234,11 +235,28 @@ static void replyError(const char* message) {
     replyJson(d);
 }
 
+// The chip this firmware is running on, read from the silicon (SYSINFO), so the installer can
+// check it against the firmware build. The IRIV IOC uses the RP2350A (QFN60 package).
+static void addChipInfo(JsonDocument& d) {
+#if defined(PICO_RP2350)
+    d["chip"] = (sysinfo_hw->package_sel & SYSINFO_PACKAGE_SEL_BITS) ? "RP2350A" : "RP2350B"; // 1 = QFN60
+    d["chipRevision"] = sysinfo_hw->chip_id >> 28;
+#else
+    d["chip"] = "RP2040";
+#endif
+    d["builtFor"] = "RP2350A";
+    d["board"] = "cytron_iriv_io_controller";
+    char id[2 * PICO_UNIQUE_BOARD_ID_SIZE_BYTES + 1];
+    pico_get_unique_board_id_string(id, sizeof(id));
+    d["uid"] = id;
+}
+
 static void sendHello() {
-    StaticJsonDocument<384> d;
+    StaticJsonDocument<512> d;
     d["type"] = "hello";
     d["product"] = "iriv-ioc-gateway";
     d["version"] = GATEWAY_VERSION_TEXT;
+    addChipInfo(d);
     d["host"] = hostname;
     d["ip"] = ethernet.localIP().toString();
     d["config"] = LittleFS.exists(ConfigPath);

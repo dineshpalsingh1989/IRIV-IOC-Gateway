@@ -10,6 +10,7 @@ import json
 import os
 import re
 import shutil
+import struct
 import subprocess
 import sys
 
@@ -27,6 +28,25 @@ def firmware_version():
     if text != ".".join(parts):
         sys.exit(f"register_map.h: GATEWAY_VERSION_TEXT {text} does not match {'.'.join(parts)}")
     return text
+
+
+# UF2 family IDs (from the UF2 spec / pico-sdk). The bootloader rejects a file for another chip.
+UF2_FAMILIES = {0xE48BFF56: "RP2040", 0xE48BFF59: "RP2350", 0xE48BFF5A: "RP2350", 0xE48BFF5B: "RP2350"}
+
+
+def uf2_chip(data):
+    """Chip the .uf2 is built for, from its family ID; every block must agree."""
+    families = set()
+    for offset in range(0, len(data), 512):
+        magic0, magic1, flags = struct.unpack_from("<3I", data, offset)
+        if (magic0, magic1) != (0x0A324655, 0x9E5D5157):
+            sys.exit(f"Not a UF2 file (bad block at {offset})")
+        if flags & 0x2000:  # family ID present
+            families.add(struct.unpack_from("<I", data, offset + 28)[0])
+    chips = {UF2_FAMILIES.get(f, f"unknown 0x{f:08x}") for f in families}
+    if len(chips) != 1 or next(iter(chips)).startswith("unknown"):
+        sys.exit(f"UF2 has unexpected families: {sorted(hex(f) for f in families)}")
+    return next(iter(chips)), sorted(families)
 
 
 def commit():
@@ -53,15 +73,26 @@ def main():
         data = f.read()
     with open(os.path.join(out, "firmware", FIRMWARE_NAME), "wb") as f:
         f.write(data)
-    manifest = {
-        "product": "iriv-ioc-gateway",
+    chip, families = uf2_chip(data)
+    build = {
+        "chip": chip,                 # what the install-mode drive reports (INFO_UF2.TXT)
+        "variant": "RP2350A",         # what the running firmware reports (package register)
         "board": "cytron_iriv_io_controller",
-        "version": firmware_version(),
+        "boardName": "Cytron IRIV IO Controller",
+        "uf2Families": [f"0x{f:08x}" for f in families],
         "file": FIRMWARE_NAME,
         "size": len(data),
         "sha256": hashlib.sha256(data).hexdigest(),
+    }
+    manifest = {
+        "product": "iriv-ioc-gateway",
+        "version": firmware_version(),
         "commit": commit(),
         "built": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        # One entry per processor/board; the installer picks the one matching the connected device.
+        "builds": [build],
+        # Single-build fields kept for older installer pages.
+        "board": build["board"], "file": build["file"], "size": build["size"], "sha256": build["sha256"],
     }
     with open(os.path.join(out, "firmware", "manifest.json"), "w", encoding="utf-8") as f:
         json.dump(manifest, f, indent=2)

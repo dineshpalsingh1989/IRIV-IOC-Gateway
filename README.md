@@ -67,6 +67,8 @@ No tools to install. You need **Chrome or Edge on a computer** and a USB-C cable
 3. **Send your settings.** Click **Connect over USB**, pick the controller, then **Send settings**. It saves them, restarts and reconnects.
 4. **Check it's running.** Step 3 shows the IP address, MQTT, Modbus TCP clients and every RS485 value, live.
 
+🔍 **It checks the device first.** The installer reads the USB IDs, the chip named on the install drive and the chip inside the firmware file, and only writes firmware built for that processor (the IRIV IOC's RP2350A). An ESP32 or RP2040 board, or the wrong .uf2, is refused before anything is written.
+
 Other browsers can still use **Download .uf2** and drag the file onto the RP2350 drive. Firmware files are also on the [releases page](https://github.com/dineshpalsingh1989/IRIV-IOC-Gateway/releases/latest).
 
 <details>
