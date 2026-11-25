@@ -2,7 +2,7 @@
 
 Arduino-Pico (RP2350A) firmware for the Cytron IRIV IO Controller. It publishes every pin to your LAN over **Modbus TCP** and **MQTT**, and polls **RS485 Modbus RTU** devices so their values appear on the LAN too. All settings come from the dashboard (`../index.html`) as `ioc_config.json`.
 
-**Status: experimental.** The firmware compiles for `cytron_iriv_io_controller` (158 KB flash, 99 KB RAM). It has **not** been run on a controller yet, and the native library tests have not been run on a PC yet (see Checks). Validate on the bench before connecting equipment.
+**Status: experimental.** The firmware compiles for `cytron_iriv_io_controller` (158 KB flash, 99 KB RAM). It has **not** been run on a controller yet. The library tests run and pass on every push (GitHub Actions, Ubuntu g++). Validate on the bench before connecting equipment.
 
 ## Our libraries
 
@@ -84,6 +84,6 @@ python tools/run_native_tests.py     # IRIVModbus core + IRIVIOCIo logic on a PC
 pio run                              # compile for the IRIV IOC (passes)
 ```
 
-The native tests were type-checked with the RP2350 toolchain but have not been executed: this PC has no host C++ compiler. Run them on a machine with g++/clang++/zig.
+GitHub Actions runs all three checks on every push and pull request, then republishes the dashboard, installer and firmware to GitHub Pages.
 
 Hardware validation still needed: DI debounce and counters at 5 kHz, analog readings against a calibrated source (the ADC reference is the nominal 3.32 V), DO switching, buzzer, Modbus TCP with a real master (including 4 concurrent clients), RTU polling against real slaves at each baud rate and parity, MQTT reconnects, static IP, and watchdog recovery.
