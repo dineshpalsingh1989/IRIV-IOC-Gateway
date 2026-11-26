@@ -56,6 +56,8 @@ Set it up in a friendly browser dashboard, install from the same page, done.</p>
 | ![Overview with digital inputs as LEDs, output tiles, analog values with bars and the buzzer card](docs/screenshots/overview.png) **Overview.** Tap LEDs and outputs to simulate. | ![Analog input set to 4-20 mA scaled 0-10 bar, with a warning to set the DIP switch to Current](docs/screenshots/analog-dialog.png) **Analog setup.** Pick the mode, scale it, and get reminded of the DIP switch. |
 | ![RS485 points table: flow meter, tank level and door switch, each with a Modbus TCP address and MQTT topic](docs/screenshots/rs485-points.png) **RS485 points.** The TCP address and topic are assigned for you. | ![Buzzer setup: trigger, frequency, pattern, auto-silence and test tone](docs/screenshots/buzzer-dialog.png) **Buzzer.** Assign a trigger and hear it with **Test tone**. |
 
+📖 **Guides:** [Install](docs/wiki/Install.md) · [Controller web page](docs/wiki/Controller-Web-Page.md) · [MQTT](docs/wiki/MQTT.md) · [RS485](docs/wiki/RS485.md) · [Modbus TCP map](docs/wiki/Modbus-TCP-Map.md) · [Troubleshooting](docs/wiki/Troubleshooting.md) (also in the [wiki](https://github.com/dineshpalsingh1989/IRIV-IOC-Gateway/wiki))
+
 ## 🚀 Quick start: install from your browser
 
 No tools to install. You need **Chrome or Edge on a computer** and a USB-C cable.
