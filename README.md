@@ -63,7 +63,15 @@ No tools to install. You need **Chrome or Edge on a computer** and a USB-C cable
 <p align="center"><img src="docs/screenshots/install.png" alt="Install page: 1 install the firmware, 2 send your settings, 3 check it's running" width="90%"></p>
 
 1. Open the **[web installer](https://dineshpalsingh1989.github.io/IRIV-IOC-Gateway/#install)** (set up your channels and connections first, on the other pages).
-2. **Install the firmware.** Click **Put in install mode** (or hold BOOT, tap RESET, release BOOT with a paperclip). A drive called **RP2350** appears: click **Write firmware to the RP2350 drive** and pick it. The controller restarts by itself.
+2. **Install the firmware.** Click **Put in install mode** (or hold BOOT, tap RESET, release BOOT with a paperclip). If the gateway is already on the controller, it runs the hardware self-test first and asks before going on if anything fails. A drive called **RP2350** appears: click **Write firmware to the RP2350 drive** and pick it. The latest firmware comes with the page, so there is no file to download. The controller restarts, the installer reconnects by itself and the USB log shows the result:
+
+   ```
+   ==== IRIV-IOC_886257 · IRIV IOC Gateway 0.3.0 is running ====
+   IP address : 192.168.0.206 (DHCP)
+   Modbus TCP : port 502
+   MQTT       : connected to 192.168.0.138 (TLS, broker checked)
+   Self-test  : no problems found
+   ```
 3. **Send your settings.** Click **Connect over USB**, pick the controller, then **Send settings**. It saves them, restarts and reconnects.
 4. **Check it's running.** Step 3 shows the IP address, MQTT, Modbus TCP clients and every RS485 value, live.
 
@@ -176,7 +184,11 @@ docs/                            README images and screenshots
 
 ## 🚧 Status
 
-**Experimental.** The firmware compiles for the IRIV IOC (`cytron_iriv_io_controller`), the library tests run on every push, and the dashboard and installer are covered by automated browser checks against a simulated controller. It has **not yet been validated on real hardware**: test inputs, counters, analog readings (uncalibrated), outputs, RS485 timing and MQTT reconnects on the bench before connecting equipment. MQTT can run over TLS (port 8883); give the broker's CA certificate so the controller checks who it is talking to.
+**Tested on a real IRIV IOC** (26 Nov 2026, firmware 0.3.0): self-test, Modbus TCP, MQTT on 1883 and over TLS on 8883, outputs, buzzer and counters all passed. The scripts are in [firmware/tools/hardware_test](firmware/tools/hardware_test/README.md), so you can run the same checks on your unit; full results in the [session notes](docs/notes/2026-11-26-session.md).
+
+<p align="center"><img src="docs/images/hardware-test.svg" alt="Test results: USB self-test passed, Modbus TCP 17/17, MQTT 1883 29/29, MQTT 8883 with TLS 29/29 with the broker checked, sessions held, library tests pass; terminal output from the test scripts" width="100%"></p>
+
+**Not yet tested on hardware:** real digital and analog signals (readings are uncalibrated), RS485 with a slave device, and the CR2032 holding the time through a power cut. Check those on the bench before connecting equipment. MQTT can run over TLS (port 8883); give the broker's CA certificate so the controller checks who it is talking to.
 
 Check the wiring and load limits against the IRIV IOC datasheet: outputs are 50 V / 500 mA solid-state relays, and the analog mode must match the AN-IN MODE DIP switch.
 

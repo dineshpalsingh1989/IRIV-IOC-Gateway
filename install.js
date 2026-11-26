@@ -296,6 +296,7 @@ async function enterInstallMode() {
     // Check the hardware before replacing the firmware.
     await runChecks(tryLink).catch(e => logLine(`Controller check failed: ${e.message}`));
     const problems = checkProblems();
+    logLine(`Self-test before install: ${!check?.result ? 'not available on this firmware' : problems.length ? `problems: ${problems.join(', ')}` : 'no problems found'}`);
     if (problems.length && !confirm(`The controller check found problems: ${problems.join(', ')}.\n\nPut it in install mode anyway?`)) {
       await tryLink.close();
       return;
@@ -329,11 +330,10 @@ async function writeFirmware() {
   await writable.write(firmware.bytes);
   try {
     await writable.close();
-    toast('Firmware copied. The controller restarts by itself in a few seconds');
-  } catch {
-    // The bootloader restarts as soon as it has every block, which can cut the drive off mid-close.
-    toast('The drive disconnected after the copy: that is normal, the controller is restarting');
-  }
+  } catch { /* the bootloader restarts as soon as it has every block, which can cut the drive off mid-close */ }
+  toast('Firmware copied. The controller is restarting: reconnecting…');
+  logLine(`Firmware ${firmware.name} copied (${kb(firmware.bytes.length)}). Waiting for the controller to restart…`);
+  if (!(await reconnect())) toast('Firmware installed. Click Connect over USB (step 2) to check it');
 }
 
 // ---------- settings ----------
@@ -396,6 +396,45 @@ async function syncClock(hello) {
   } catch (e) { logLine(`Could not set the clock: ${e.message}`); }
 }
 
+// After a restart the controller re-enumerates over USB: reconnect to a port the user already allowed,
+// then report in the USB log whether it came up and on which IP address. False when it did not come back.
+async function reconnect(port) {
+  if (!hasSerial) return false;
+  setDevice('Restarting…', false);
+  for (let attempt = 0; attempt < 16; attempt++) {
+    await wait(1500);
+    const known = await navigator.serial.getPorts();
+    for (const p of [port, ...known.filter(k => k !== port)].filter(Boolean)) {
+      try { await connect(p); await reportRunning(); return true; } catch { await disconnect(); }
+    }
+  }
+  setDevice('Not connected', false);
+  return false;
+}
+
+// Waits up to 60 s for an IP address, then writes a summary to the USB log and shows it.
+async function reportRunning() {
+  let s;
+  for (let i = 0; i < 30 && link; i++) {
+    try { s = await link.request('STATUS', ['status'], 2500); } catch { /* busy, try again */ }
+    if (s?.online) break;
+    await wait(2000);
+  }
+  if (!s) return;
+  const problems = checkProblems();
+  const lines = [
+    `==== ${s.host} · IRIV IOC Gateway ${s.version} is running ====`,
+    `IP address : ${s.online ? `${s.ip} (${s.dhcp ? 'DHCP' : 'static'})` : s.link ? 'no address yet: is there a DHCP server?' : 'no Ethernet cable'}`,
+    `Modbus TCP : ${s.modbus.enabled ? `port ${s.modbus.port}` : 'off'}`,
+    `MQTT       : ${s.mqtt.enabled ? `${s.mqtt.connected ? 'connected to' : 'not connected to'} ${s.mqtt.host}${s.mqtt.tls ? (s.mqtt.brokerChecked ? ' (TLS, broker checked)' : ' (TLS)') : ''}` : 'off'}`,
+    `Self-test  : ${!check?.result ? 'not available' : problems.length ? `problems: ${problems.join(', ')}` : 'no problems found'}`
+  ];
+  lines.forEach(logLine);
+  $('#inst-log').closest('details').open = true;
+  $('#inst-log').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  toast(s.online ? `Running on ${s.ip}` : 'Running, but no IP address yet');
+}
+
 async function disconnect() {
   clearInterval(statusTimer);
   const old = link;
@@ -413,17 +452,7 @@ async function sendSettings() {
     toast(saved.warning ? `Saved with a warning: ${saved.warning}` : 'Settings saved. The controller is restarting…');
     const port = link.port;
     await disconnect();
-    setDevice('Restarting…', false);
-    // The controller re-enumerates over USB; reconnect to the port the user already allowed.
-    for (let attempt = 0; attempt < 12; attempt++) {
-      await wait(1500);
-      const known = await navigator.serial.getPorts();
-      for (const p of [port, ...known.filter(k => k !== port)]) {
-        try { await connect(p); return; } catch { await disconnect(); }
-      }
-    }
-    setDevice('Not connected', false);
-    toast('Settings saved. Click Connect over USB to see the status');
+    if (!(await reconnect(port))) toast('Settings saved. Click Connect over USB to see the status');
   } catch (e) {
     $('#inst-send').disabled = !link;
     throw e;
