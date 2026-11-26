@@ -370,30 +370,35 @@
         <ol class="install-steps">
           <li class="panel step-card">
             <div class="step-head"><span class="step-num">1</span><div><h2>Install the firmware</h2><p id="inst-fw-info">Looking for the latest firmware…</p></div></div>
-            <div class="step-body">
+            <div class="step-body single">
               <div class="step-text">
-                <p><b>Connect the controller with USB-C and click Check and install.</b> When the gateway is on it, the installer runs the hardware self-test first and asks before going on if it finds a problem. From version 0.3.1 the new firmware then goes straight over USB: nothing to download or pick, and the controller restarts by itself. Older or other firmware is put in install mode instead (or do it by hand: hold <b>BOOT</b>, press and release <b>RESET</b>, then release BOOT; both are pinholes on the front, use a paperclip). A new or empty controller is already in install mode when you plug it in: it shows up as the RP2350 drive, not as a USB port.</p>
+                <p><b>Plug in USB-C and click Install.</b> One click does it all: it checks the controller (Ethernet chip, clock, flash, temperature), installs this firmware, waits for it to restart and shows the result, with the IP address, in the log below. Nothing to download.</p>
                 <div class="btn-row">
-                  <button type="button" class="button button-secondary" id="inst-bootloader"><svg class="i" aria-hidden="true"><use href="#i-usb"/></svg>Check and install</button>
+                  <button type="button" class="button button-dark" id="inst-bootloader"><svg class="i" aria-hidden="true"><use href="#i-usb"/></svg>Install</button>
                 </div>
-                <p>Only in install mode: a drive called <b>RP2350</b> appears. Copy the firmware onto it: the controller restarts by itself when the copy finishes, the installer reconnects and the USB log in step 3 shows its IP address.</p>
-                <div class="btn-row">
-                  <button type="button" class="button button-dark" id="inst-write"><svg class="i" aria-hidden="true"><use href="#i-download"/></svg>Write firmware to the RP2350 drive</button>
-                  <a class="button button-secondary" id="inst-download" href="firmware/iriv-ioc-gateway.uf2" download><svg class="i" aria-hidden="true"><use href="#i-download"/></svg>Download .uf2</a>
-                </div>
-                <details class="inst-more"><summary>Use a firmware file from this computer</summary><input type="file" id="inst-file" accept=".uf2"><p class="muted" id="inst-file-info"></p></details>
+                <details class="inst-more" id="inst-log-box"><summary>Install log</summary><pre class="usb-log" id="inst-log"></pre></details>
+                <details class="inst-more" id="inst-other"><summary>New controller, or install by hand</summary>
+                  <div class="step-text">
+                    <p>A new or empty controller, or one with other firmware, needs install mode once. The Install button does this when it can; otherwise hold <b>BOOT</b>, tap <b>RESET</b>, release BOOT (pinholes on the front, use a paperclip). A drive called <b>RP2350</b> appears: click <b>Write firmware to the RP2350 drive</b> and pick it. The installer then reconnects and logs the result above.</p>
+                    <div class="btn-row">
+                      <button type="button" class="button button-dark" id="inst-write"><svg class="i" aria-hidden="true"><use href="#i-download"/></svg>Write firmware to the RP2350 drive</button>
+                      <a class="button button-secondary" id="inst-download" href="firmware/iriv-ioc-gateway.uf2" download><svg class="i" aria-hidden="true"><use href="#i-download"/></svg>Download .uf2</a>
+                    </div>
+                    <details class="inst-more"><summary>Use a firmware file from this computer</summary><input type="file" id="inst-file" accept=".uf2"><p class="muted" id="inst-file-info"></p></details>
+                  <svg class="front-panel" viewBox="0 0 300 150" role="img" aria-label="Front of the controller: BOOT and RESET pinholes next to the USB-C port">
+                    <rect x="4" y="4" width="292" height="142" rx="16" fill="#2b3134" stroke="#1d2926" stroke-width="4"/>
+                    <rect x="24" y="86" width="46" height="18" rx="9" fill="#cfd8d1" stroke="#1d2926" stroke-width="3"/>
+                    <text x="47" y="124" text-anchor="middle" fill="#fff" font-size="12" font-family="Segoe UI,Arial">USB-C</text>
+                    <circle cx="118" cy="62" r="9" fill="#111" stroke="#e8833a" stroke-width="4"/>
+                    <text x="118" y="40" text-anchor="middle" fill="#fff" font-size="13" font-weight="700" font-family="Segoe UI,Arial">RESET</text>
+                    <circle cx="182" cy="62" r="9" fill="#111" stroke="#3fae6a" stroke-width="4"/>
+                    <text x="182" y="40" text-anchor="middle" fill="#fff" font-size="13" font-weight="700" font-family="Segoe UI,Arial">BOOT</text>
+                    <text x="188" y="104" text-anchor="middle" fill="#f4c84a" font-size="13" font-family="Segoe UI,Arial">1 hold BOOT · 2 tap RESET</text>
+                    <text x="188" y="124" text-anchor="middle" fill="#f4c84a" font-size="13" font-family="Segoe UI,Arial">3 release BOOT</text>
+                  </svg>
+                  </div>
+                </details>
               </div>
-              <svg class="front-panel" viewBox="0 0 300 150" role="img" aria-label="Front of the controller: BOOT and RESET pinholes next to the USB-C port">
-                <rect x="4" y="4" width="292" height="142" rx="16" fill="#2b3134" stroke="#1d2926" stroke-width="4"/>
-                <rect x="24" y="86" width="46" height="18" rx="9" fill="#cfd8d1" stroke="#1d2926" stroke-width="3"/>
-                <text x="47" y="124" text-anchor="middle" fill="#fff" font-size="12" font-family="Segoe UI,Arial">USB-C</text>
-                <circle cx="118" cy="62" r="9" fill="#111" stroke="#e8833a" stroke-width="4"/>
-                <text x="118" y="40" text-anchor="middle" fill="#fff" font-size="13" font-weight="700" font-family="Segoe UI,Arial">RESET</text>
-                <circle cx="182" cy="62" r="9" fill="#111" stroke="#3fae6a" stroke-width="4"/>
-                <text x="182" y="40" text-anchor="middle" fill="#fff" font-size="13" font-weight="700" font-family="Segoe UI,Arial">BOOT</text>
-                <text x="188" y="104" text-anchor="middle" fill="#f4c84a" font-size="13" font-family="Segoe UI,Arial">1 hold BOOT · 2 tap RESET</text>
-                <text x="188" y="124" text-anchor="middle" fill="#f4c84a" font-size="13" font-family="Segoe UI,Arial">3 release BOOT</text>
-              </svg>
             </div>
           </li>
 
@@ -414,7 +419,7 @@
             <div class="step-head"><span class="step-num">3</span><div><h2>Check it's running</h2><p>Live status from the controller while it's connected.</p></div></div>
             <div class="step-body single">
               <div class="status-grid" id="inst-status"><p class="muted">Connect over USB to see the controller's status.</p></div>
-              <details class="inst-more"><summary>USB log</summary><pre class="usb-log" id="inst-log"></pre></details>
+              <p class="muted">Everything the controller says over USB is in the install log in step 1.</p>
             </div>
           </li>
         </ol>

@@ -218,6 +218,10 @@ class IocLink {
 }
 
 // ---------- helpers ----------
+function openLog() {
+  $('#inst-log-box').open = true;
+  $('#inst-log-box').scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
 function logLine(text) {
   const log = $('#inst-log');
   log.textContent = (log.textContent + text + '\n').slice(-6000);
@@ -279,6 +283,8 @@ async function firmwareFor(chip) {
 
 async function enterInstallMode() {
   const port = link ? link.port : await choosePort();
+  openLog();
+  logLine(`==== Install ${manifest?.version || ''}: checking the controller ====`);
   if (link) await disconnect(); // reopened below
   detected.usb = usbInfo(port);
   renderDetected();
@@ -299,6 +305,7 @@ async function enterInstallMode() {
     renderVersion();
     // Check the hardware before replacing the firmware.
     await runChecks(tryLink).catch(e => logLine(`Controller check failed: ${e.message}`));
+    if (check?.result) for (const [name, text, state] of checkRows(check.result)) if (state !== 'info') logLine(`  ${state === 'ok' ? 'OK ' : 'BAD'} ${name}: ${text.replace(/<[^>]+>/g, '')}`);
     const problems = checkProblems();
     logLine(`Self-test before install: ${!check?.result ? 'not available on this firmware' : problems.length ? `problems: ${problems.join(', ')}` : 'no problems found'}`);
     if (problems.length && !confirm(`The controller check found problems: ${problems.join(', ')}.\n\nInstall anyway?`)) {
@@ -309,7 +316,10 @@ async function enterInstallMode() {
     const update = buildFor((detected.hello.chip || '').replace(/[AB]$/, ''))?.update;
     if (update && !customFile && cmpVersion(detected.hello.version, '0.3.1') >= 0) {
       if (cmpVersion(detected.hello.version, manifest.version) >= 0 && !confirm(`This controller already runs ${detected.hello.version}. Install ${manifest.version} again?`)) {
+        logLine(`Already up to date (${detected.hello.version}): nothing installed`);
         await tryLink.close();
+        await connect(port);
+        await reportRunning();
         return;
       }
       try { await updateOverUsb(tryLink, update); } finally { await tryLink.close(); }
@@ -325,7 +335,11 @@ async function enterInstallMode() {
     await port.setSignals({ dataTerminalReady: false }).catch(() => {});
     await port.close().catch(() => {});
   }
-  toast('Install mode: a drive called RP2350 should appear in a few seconds');
+  logLine('This controller needs install mode once: a drive called RP2350 appears in a few seconds.');
+  logLine('Click "Write firmware to the RP2350 drive" and pick it. The browser needs that one click to write to a drive.');
+  $('#inst-other').open = true;
+  $('#inst-write').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  toast('Install mode: pick the RP2350 drive with Write firmware');
 }
 
 // Downloads the published .bin, checks it against the manifest and sends it to a running gateway (0.3.1+),
@@ -344,6 +358,7 @@ async function updateOverUsb(l, update) {
 }
 
 async function writeFirmware() {
+  openLog();
   if (!hasDirectoryPicker) throw new Error('This browser cannot write to drives. Download the .uf2 and drag it onto the RP2350 drive.');
   const dir = await window.showDirectoryPicker({ id: 'rp2350', mode: 'readwrite' });
   // Every RP2040/RP2350 install-mode drive has this file, naming the chip: refuse anything else.
@@ -461,8 +476,7 @@ async function reportRunning() {
     `Self-test  : ${!check?.result ? 'not available' : problems.length ? `problems: ${problems.join(', ')}` : 'no problems found'}`
   ];
   lines.forEach(logLine);
-  $('#inst-log').closest('details').open = true;
-  $('#inst-log').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  openLog();
   toast(s.online ? `Running on ${s.ip}` : 'Running, but no IP address yet');
 }
 
@@ -592,7 +606,7 @@ guard('#inst-identify', async () => {
 });
 guard('#inst-outputs', async () => {
   if (!onDevice() && !link) throw new Error('Connect over USB first (step 2)');
-  if (cmpVersion(detected.hello.version, '0.3.2') < 0) throw new Error('Output test needs firmware 0.3.2 or newer: click Check and install first');
+  if (cmpVersion(detected.hello.version, '0.3.2') < 0) throw new Error('Output test needs firmware 0.3.2 or newer: click Install first');
   if (!confirm('This switches DO0, DO1, DO2 and DO3 on one after another for 3 seconds.\n\nDisconnect anything wired to the outputs that must not switch. Go on?')) return;
   if (onDevice()) await webAction('api/testoutputs'); else await link.request('TESTOUTPUTS', ['testoutputs'], 2500);
   logLine('Output test: DO0 → DO1 → DO2 → DO3 → DO2 → DO1, twice');
