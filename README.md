@@ -210,7 +210,9 @@ docs/                            README images and screenshots
 
 Tested against an amqtt broker on the LAN without a username. Mosquitto, EMQX, HiveMQ or cloud brokers speak the same MQTT 3.1.1 and TLS but are not tested yet. For TLS with a CA, the broker's certificate must list its address as a **DNS name**, even when that address is an IP.
 
-**Not yet tested on hardware:** the controller's own web page and the output test (firmware 0.3.2; checked against a simulated controller only), real digital and analog signals (readings are uncalibrated), RS485 with a slave device, and the CR2032 holding the time through a power cut. Check those on the bench before connecting equipment. MQTT can run over TLS (port 8883); give the broker's CA certificate so the controller checks who it is talking to.
+**Web page and updates (firmware 0.3.2, tested on the IOC 26 Nov 2026):** 16/16 web checks: the four pages load from the controller, live status, passwords never sent to the page, no or wrong password refused, output running light, a firmware update with a wrong checksum refused and the real one installed **over the LAN**; Save to controller keeps the saved passwords; Modbus TCP 17/17 on 0.3.2.
+
+**Not yet tested on hardware:** real digital and analog signals (readings are uncalibrated), RS485 with a slave device, and the CR2032 holding the time through a power cut. Check those on the bench before connecting equipment. MQTT can run over TLS (port 8883); give the broker's CA certificate so the controller checks who it is talking to.
 
 Check the wiring and load limits against the IRIV IOC datasheet: outputs are 50 V / 500 mA solid-state relays, and the analog mode must match the AN-IN MODE DIP switch.
 
