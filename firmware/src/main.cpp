@@ -428,7 +428,7 @@ void setup() {
     snprintf(hostname, sizeof(hostname), "IRIV-IOC_%s", id + strlen(id) - 6); // same style as Cytron's firmware
 
     String error;
-    fsMounted = LittleFS.begin(); // never formats
+    fsMounted = LittleFS.begin(); // formats if the area holds no LittleFS of this size (Arduino-Pico default)
     if (!fsMounted) error = "LittleFS mount failed, using defaults";
     else if (LittleFS.exists(ConfigPath)) loadConfig(ConfigPath, cfg, error); // no file = defaults, not an error
     if (error.length()) log(error.c_str());
