@@ -34,6 +34,8 @@ struct GatewayConfig {
     bool mqttEnabled = false;
     char mqttHost[65] = "";
     uint16_t mqttPort = 1883;
+    bool mqttTls = false;
+    char mqttCa[3072] = ""; // PEM CA certificate(s) to check the broker; empty = encrypted but not checked
     char mqttClient[65] = "";
     char mqttUser[65] = "";
     char mqttPass[65] = "";

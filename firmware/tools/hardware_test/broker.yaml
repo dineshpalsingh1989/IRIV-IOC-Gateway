@@ -1,0 +1,14 @@
+# Test broker for the hardware tests: run `amqtt -c broker.yaml` here after `python mkcert.py`.
+listeners:
+  default:
+    type: tcp
+    bind: 0.0.0.0:1883
+  tls:
+    type: tcp
+    bind: 0.0.0.0:8883
+    ssl: true
+    certfile: server.pem
+    keyfile: server.key
+plugins:
+  amqtt.plugins.authentication.AnonymousAuthPlugin:
+    allow_anonymous: true

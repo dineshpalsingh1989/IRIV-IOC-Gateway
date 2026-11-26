@@ -250,6 +250,8 @@
     "enabled": true,
     "host": "192.168.1.10",
     "port": "1883",
+    "tls": false,
+    "ca": "",
     "client": "iriv-ioc-01",
     "topic": "factory/line01/ioc01",
     "user": "",

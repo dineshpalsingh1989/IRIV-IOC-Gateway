@@ -78,7 +78,9 @@ Unit ID filter: the configured unit (default 255) and 255 are answered; 0 answer
 
 ## MQTT
 
-Topics come from the dashboard's topic map (`map.mqtt` in the config). On/off states (DI, DO, buzzer) publish when they change; analog values, pulse counts and RS485 points publish on the interval. Payloads are `1`/`0`, numbers, or `NaN` for a fault or a device that stopped answering. Outputs and the buzzer accept `1`, `0`, `ON`, `OFF`, `true` or `false` on their command topic. Plain MQTT only: TLS does not hold a session on this board (see the Wilcoxon gateway notes).
+Topics come from the dashboard's topic map (`map.mqtt` in the config). On/off states (DI, DO, buzzer) publish when they change; analog values, pulse counts and RS485 points publish on the interval. Payloads are `1`/`0`, numbers, or `NaN` for a fault or a device that stopped answering. Outputs and the buzzer accept `1`, `0`, `ON`, `OFF`, `true` or `false` on their command topic.
+
+**TLS (port 8883):** set `mqtt.tls` to `true`. With `mqtt.ca` (PEM text of the CA that signed the broker's certificate) the controller checks the broker's certificate, dates included, against the RTC; it refuses to connect while the clock is lost. Without `mqtt.ca` the link is encrypted but the broker is not checked. The broker's certificate must carry the broker address you configured as a DNS name in its subject alternative names: BearSSL does not match IP-address entries, so a certificate for `192.168.0.10` needs `DNS:192.168.0.10` as well as `IP:192.168.0.10`. Tested on 26 Nov 2026 against a local broker: 29/29 checks over 8883 with and without `mqtt.ca`, sessions held without reconnects until the board was unplugged, a certificate from another CA was refused. Not tested: refusal while the RTC is lost. TLS uses BearSSL and adds about 75 KB of flash.
 
 ## Checks
 

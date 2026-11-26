@@ -240,6 +240,7 @@ h1:focus { outline: none; }
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 12px; }
 .field { display: grid; gap: 6px; align-content: start; color: var(--text); font-size: 13px; font-weight: 600; }
 .field > span small { font-weight: 400; color: var(--muted); margin-left: 4px; }
+.field textarea { width: 100%; border: 1px solid #d9e0d8; border-radius: 8px; background: var(--surface); padding: 8px 12px; color: var(--ink); font: 12px/1.4 ui-monospace, monospace; resize: vertical; }
 .field input, .field select { width: 100%; min-height: 40px; border: 1px solid #d9e0d8; border-radius: 8px; background: var(--surface); padding: 0 12px; color: var(--ink); font-size: 14px; font-weight: 400; }
 .field input:hover, .field select:hover { border-color: #bccabf; }
 .field input:focus, .field select:focus { outline: none; border-color: var(--focus); box-shadow: 0 0 0 3px #2f7d5c26; }

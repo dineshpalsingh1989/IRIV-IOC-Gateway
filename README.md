@@ -176,7 +176,7 @@ docs/                            README images and screenshots
 
 ## 🚧 Status
 
-**Experimental.** The firmware compiles for the IRIV IOC (`cytron_iriv_io_controller`), the library tests run on every push, and the dashboard and installer are covered by automated browser checks against a simulated controller. It has **not yet been validated on real hardware**: test inputs, counters, analog readings (uncalibrated), outputs, RS485 timing and MQTT reconnects on the bench before connecting equipment. MQTT runs without TLS on this board, so use a broker on a trusted network.
+**Experimental.** The firmware compiles for the IRIV IOC (`cytron_iriv_io_controller`), the library tests run on every push, and the dashboard and installer are covered by automated browser checks against a simulated controller. It has **not yet been validated on real hardware**: test inputs, counters, analog readings (uncalibrated), outputs, RS485 timing and MQTT reconnects on the bench before connecting equipment. MQTT can run over TLS (port 8883); give the broker's CA certificate so the controller checks who it is talking to.
 
 Check the wiring and load limits against the IRIV IOC datasheet: outputs are 50 V / 500 mA solid-state relays, and the analog mode must match the AN-IN MODE DIP switch.
 

@@ -52,7 +52,7 @@ const defaults = () => ({
   channels: structuredClone(definitions),
   network: { dhcp: true, ip: '', subnet: '255.255.255.0', gateway: '', dns: '' },
   // Publishing is QoS 0 in WilcoxonMqtt; `qos` is the subscribe QoS for output/buzzer commands.
-  mqtt: { enabled: false, host: '', port: '1883', client: 'iriv-ioc-01', topic: 'factory/line01/ioc01', user: '', pass: '', qos: '0', retain: true, interval: '5' },
+  mqtt: { enabled: false, host: '', port: '1883', tls: false, ca: '', client: 'iriv-ioc-01', topic: 'factory/line01/ioc01', user: '', pass: '', qos: '0', retain: true, interval: '5' },
   modbus: { enabled: true, port: '502', unit: '255', wordOrder: 'ABCD' },
   rs485: { enabled: false, baud: '9600', parity: 'None', stopBits: '1', poll: '1000', timeout: '500', wordOrder: 'ABCD', points: [] }
 });
@@ -80,7 +80,7 @@ function loadConfig() {
     let storedPoints = (Array.isArray(stored.rs485?.points) ? stored.rs485.points : []).map(p => ({ ...p, kind: 'rs485' }));
     // Points saved before the Cytron-compatible map started at 100: move them into the RS485 block.
     if (storedPoints.some(p => !(p.tcp >= MB.RS485))) storedPoints = storedPoints.map((p, i) => ({ ...p, tcp: MB.RS485 + 2 * i }));
-    const { wsPort, tls, ...storedMqtt } = stored.mqtt || {}; // options the IRIV IOC does not support
+    const { wsPort, ...storedMqtt } = stored.mqtt || {}; // an option the IRIV IOC does not support
     return {
       network: { ...fresh.network, ...stored.network },
       mqtt: { ...fresh.mqtt, ...storedMqtt, qos: storedMqtt.qos === '1' ? '1' : '0' },
@@ -493,7 +493,7 @@ function deletePoint(id) {
 function fillConnectionForm() {
   const n = config.network, m = config.mqtt, b = config.modbus, r = config.rs485;
   $('#net-dhcp').checked = n.dhcp; $('#net-ip').value = n.ip; $('#net-subnet').value = n.subnet; $('#net-gateway').value = n.gateway; $('#net-dns').value = n.dns;
-  $('#mqtt-enabled').checked = m.enabled; $('#mqtt-host').value = m.host; $('#mqtt-port').value = m.port; $('#mqtt-client').value = m.client; $('#mqtt-topic').value = m.topic; $('#mqtt-user').value = m.user; $('#mqtt-pass').value = m.pass;
+  $('#mqtt-enabled').checked = m.enabled; $('#mqtt-host').value = m.host; $('#mqtt-port').value = m.port; $('#mqtt-tls').checked = m.tls; $('#mqtt-ca').value = m.ca; $('#mqtt-client').value = m.client; $('#mqtt-topic').value = m.topic; $('#mqtt-user').value = m.user; $('#mqtt-pass').value = m.pass;
   $('#mqtt-qos').value = m.qos; $('#mqtt-retain').checked = m.retain; $('#mqtt-interval').value = m.interval;
   $('#modbus-enabled').checked = b.enabled; $('#modbus-port').value = b.port; $('#modbus-unit').value = b.unit; $('#modbus-word').value = b.wordOrder;
   $('#rs485-enabled').checked = r.enabled; $('#rs485-baud').value = r.baud; $('#rs485-parity').value = r.parity; $('#rs485-stop').value = r.stopBits; $('#rs485-poll').value = r.poll; $('#rs485-timeout').value = r.timeout; $('#rs485-word').value = r.wordOrder;
@@ -502,7 +502,7 @@ function fillConnectionForm() {
 function readConnectionForm() {
   return {
     network: { dhcp: $('#net-dhcp').checked, ip: $('#net-ip').value.trim(), subnet: $('#net-subnet').value.trim(), gateway: $('#net-gateway').value.trim(), dns: $('#net-dns').value.trim() },
-    mqtt: { enabled: $('#mqtt-enabled').checked, host: $('#mqtt-host').value.trim(), port: $('#mqtt-port').value || '1883', client: $('#mqtt-client').value.trim(), topic: $('#mqtt-topic').value.trim(), user: $('#mqtt-user').value, pass: $('#mqtt-pass').value, qos: $('#mqtt-qos').value, retain: $('#mqtt-retain').checked, interval: $('#mqtt-interval').value },
+    mqtt: { enabled: $('#mqtt-enabled').checked, host: $('#mqtt-host').value.trim(), port: $('#mqtt-port').value || '1883', tls: $('#mqtt-tls').checked, ca: $('#mqtt-ca').value.trim(), client: $('#mqtt-client').value.trim(), topic: $('#mqtt-topic').value.trim(), user: $('#mqtt-user').value, pass: $('#mqtt-pass').value, qos: $('#mqtt-qos').value, retain: $('#mqtt-retain').checked, interval: $('#mqtt-interval').value },
     modbus: { enabled: $('#modbus-enabled').checked, port: $('#modbus-port').value || '502', unit: $('#modbus-unit').value || '255', wordOrder: $('#modbus-word').value },
     rs485: { enabled: $('#rs485-enabled').checked, baud: $('#rs485-baud').value, parity: $('#rs485-parity').value, stopBits: $('#rs485-stop').value, poll: $('#rs485-poll').value, timeout: $('#rs485-timeout').value, wordOrder: $('#rs485-word').value }
   };

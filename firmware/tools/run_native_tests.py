@@ -32,7 +32,8 @@ def compiler():
 def main():
     cxx = compiler()
     failed = 0
-    with tempfile.TemporaryDirectory() as out:
+    # Windows can still hold a just-run .exe open; a leftover temp file is not a test failure.
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as out:
         for lib, sources in SUITES:
             exe = os.path.join(out, lib + (".exe" if os.name == "nt" else ""))
             files = [os.path.join(ROOT, lib, s) for s in sources]

@@ -49,7 +49,7 @@ bool loadConfig(const char* path, GatewayConfig& c, String& error) {
     filter["rs485"] = true; // settings plus points[]
     for (const char* key : {"id", "mode", "scaleLo", "scaleHi", "counter", "trigger", "compare", "threshold", "freq", "pattern", "silence"})
         filter["channels"][0][key] = true;
-    for (const char* key : {"enabled", "host", "port", "client", "user", "pass", "retain", "qos", "interval"})
+    for (const char* key : {"enabled", "host", "port", "tls", "ca", "client", "user", "pass", "retain", "qos", "interval"})
         filter["mqtt"][key] = true;
     for (const char* key : {"source", "publish", "subscribe"}) filter["map"]["mqtt"][0][key] = true;
     // Heap, freed after loading. Worst case (64 points, 82 topics of 128 characters) is about 51 KB.
@@ -79,6 +79,10 @@ bool loadConfig(const char* path, GatewayConfig& c, String& error) {
     c.mqttEnabled = mq["enabled"] | false;
     copyText(c.mqttHost, sizeof(c.mqttHost), mq["host"]);
     c.mqttPort = uint16_t(number(mq["port"], 1883));
+    c.mqttTls = mq["tls"] | false;
+    copyText(c.mqttCa, sizeof(c.mqttCa), mq["ca"]);
+    // A cut-off certificate fails every check, so the broker is refused rather than trusted.
+    if (strlen(mq["ca"] | "") >= sizeof(c.mqttCa)) error = "MQTT CA certificate too long (max 3071 characters)";
     copyText(c.mqttClient, sizeof(c.mqttClient), mq["client"]);
     copyText(c.mqttUser, sizeof(c.mqttUser), mq["user"]);
     copyText(c.mqttPass, sizeof(c.mqttPass), mq["pass"]);

@@ -7,6 +7,7 @@
 #include <memory>
 #include <SPI.h>
 #include <WiFi.h>
+#include <WiFiClientSecure.h>
 #include <pico/mutex.h>
 #include <pico/unique_id.h>
 #include <hardware/structs/sysinfo.h>
@@ -54,6 +55,8 @@ static iriv::BuzzerState buzzerState;
 
 // ---- MQTT ----
 static WiFiClient mqttNet;
+static WiFiClientSecure mqttTlsNet; // used when mqtt.tls is set
+static std::unique_ptr<BearSSL::X509List> mqttCa; // must outlive mqttTlsNet's connections
 static WilcoxonMqttClient mqtt(mqttNet);
 static char published[GatewayConfig::MaxTopics][16]; // last payload sent per topic
 
@@ -199,6 +202,12 @@ static void serviceMqtt(uint32_t now) {
     if (!mqtt.connected()) {
         if (int32_t(now - nextConnect) < 0) return;
         nextConnect = now + 10000;
+        if (mqttCa) {
+            // Certificate dates are checked against the RTC; without a valid time every check fails.
+            uint32_t t;
+            if (rtc.read(t) != irivioc::Rtc::State::Ok) { log("MQTT TLS: RTC time not valid, set it from the installer"); return; }
+            mqttTlsNet.setX509Time(t);
+        }
         const char* id = cfg.mqttClient[0] ? cfg.mqttClient : hostname;
         const bool ok = cfg.mqttUser[0] ? mqtt.connect(id, cfg.mqttUser, cfg.mqttPass) : mqtt.connect(id);
         if (!ok) { Serial.printf("MQTT connect failed, state %d\n", mqtt.state()); return; }
@@ -308,6 +317,8 @@ static void sendStatus() {
     JsonObject mq = d.createNestedObject("mqtt");
     mq["enabled"] = cfg.mqttEnabled;
     mq["host"] = cfg.mqttHost;
+    mq["tls"] = cfg.mqttTls;
+    mq["brokerChecked"] = bool(mqttCa);
     mq["connected"] = mqtt.connected();
     mq["state"] = mqtt.state();
     JsonArray points = d.createNestedArray("rs485");
@@ -460,6 +471,16 @@ void setup() {
     if (!ethernetStarted) log("Ethernet start failed");
 
     if (cfg.modbusEnabled) modbus.begin(cfg.modbusPort, cfg.modbusUnit);
+    if (cfg.mqttTls) {
+        if (cfg.mqttCa[0]) {
+            mqttCa.reset(new BearSSL::X509List(cfg.mqttCa));
+            if (!mqttCa->getCount()) log("MQTT TLS: CA certificate not readable, the broker will be refused");
+            mqttTlsNet.setTrustAnchors(mqttCa.get());
+        } else {
+            mqttTlsNet.setInsecure(); // no CA given: encrypted, but the broker is not checked
+        }
+        mqtt.setClient(mqttTlsNet);
+    }
     mqtt.setServer(cfg.mqttHost, cfg.mqttPort);
     mqtt.setBufferSize(512);
     mqtt.setSocketTimeout(2); // connect() blocks at most this long
