@@ -295,6 +295,7 @@
             <label class="field"><span>Data type</span><select id="pt-type"></select></label>
             <label class="field"><span>Scale <small>multiply by</small></span><input id="pt-scale" type="number" step="any" value="1" /></label>
             <label class="field"><span>Unit <small>Optional</small></span><input id="pt-unit" maxlength="8" placeholder="m³/h" /></label>
+            <label class="field span-all"><span>MQTT topic <small>pick a suggestion or type your own · must not be used by another channel or point</small></span><input id="pt-topic" list="pt-topic-list" spellcheck="false" autocomplete="off" /><datalist id="pt-topic-list"></datalist></label>
             <div class="pt-actions span-all">
               <p class="assign-preview" id="pt-preview"></p>
               <button type="button" class="button button-secondary" id="pt-cancel" hidden>Cancel</button>

@@ -446,9 +446,20 @@ function syncPointForm() {
   typeSel.innerHTML = bool ? '<option value="bool">bool · 1 bit</option>' : options(Object.entries(TYPES), current in TYPES ? current : 'int16');
   $('#pt-scale').disabled = bool;
   const target = editingPoint ? pointRef(editingPoint) : tcpSpaceLeft() ? plcRef('input', nextTcp(), 2) : null;
-  $('#pt-preview').innerHTML = target
-    ? `${icon('arrow-right')}<span>${editingPoint ? 'Keeps' : 'Will get'} Modbus TCP <code>${target}</code> and MQTT <code>${escapeHtml(topicOf(editingPoint || { kind: 'rs485', id: nextPointId() }))}</code></span>`
+  const { point, topic, error } = pointTopic();
+  const slug = $('#pt-name').value.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  const ideas = [defaultTopic(point, 'topic'), ...(slug ? [`${baseTopic()}/rs485/${slug}/state`, `${baseTopic()}/${slug}/state`, `${baseTopic()}/${slug}`] : [])];
+  $('#pt-topic').placeholder = defaultTopic(point, 'topic');
+  $('#pt-topic-list').innerHTML = [...new Set(ideas)].filter(t => !topicError(point, 'topic', t)).map(t => `<option value="${escapeHtml(t)}">`).join(''); // only free topics
+  $('#pt-preview').innerHTML = error ? `${icon('alert')}<span>${escapeHtml(error)}: choose another MQTT topic</span>` : target
+    ? `${icon('arrow-right')}<span>${editingPoint ? 'Keeps' : 'Will get'} Modbus TCP <code>${target}</code> and MQTT <code>${escapeHtml(topic)}</code></span>`
     : `${icon('alert')}<span>No Modbus TCP space left: the gateway serves up to 64 RS485 points</span>`;
+}
+// The topic the point in the form will publish on, and why it cannot (another channel or point uses it).
+function pointTopic() {
+  const point = editingPoint || { kind: 'rs485', id: nextPointId() };
+  const custom = $('#pt-topic').value.trim(), topic = custom || defaultTopic(point, 'topic');
+  return { point, custom, topic, error: topicError(point, 'topic', topic) };
 }
 function resetPointForm() {
   ptForm.reset(); editingPoint = null; $('#pt-type').innerHTML = ''; // back to int16
@@ -461,7 +472,7 @@ function editPoint(id) {
   const p = points().find(x => x.id === id);
   if (!p) return;
   editingPoint = p;
-  $('#pt-name').value = p.name; $('#pt-slave').value = p.slave; $('#pt-fn').value = p.fn; $('#pt-reg').value = p.reg; $('#pt-scale').value = p.scale; $('#pt-unit').value = p.unit;
+  $('#pt-name').value = p.name; $('#pt-slave').value = p.slave; $('#pt-fn').value = p.fn; $('#pt-reg').value = p.reg; $('#pt-scale').value = p.scale; $('#pt-unit').value = p.unit; $('#pt-topic').value = p.topic || '';
   syncPointForm(); $('#pt-type').value = p.type;
   $('#pt-submit span').textContent = `Save ${p.id}`; $('#pt-cancel').hidden = false;
   $('#rs485-panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -469,6 +480,8 @@ function editPoint(id) {
 }
 ptForm.addEventListener('input', e => { e.target.setCustomValidity?.(''); });
 $('#pt-fn').addEventListener('change', syncPointForm);
+$('#pt-topic').addEventListener('input', syncPointForm);
+$('#pt-name').addEventListener('input', syncPointForm);
 $('#pt-cancel').addEventListener('click', resetPointForm);
 ptForm.addEventListener('submit', e => {
   e.preventDefault();
@@ -480,12 +493,15 @@ ptForm.addEventListener('submit', e => {
   regEl.setCustomValidity(err);
   if (err) { regEl.reportValidity(); return; }
   if (!draft.name) { $('#pt-name').setCustomValidity('Enter a name'); $('#pt-name').reportValidity(); return; }
+  const chosen = pointTopic();
+  if (chosen.error) { $('#pt-topic').setCustomValidity(`${chosen.error}: choose another MQTT topic`); $('#pt-topic').reportValidity(); return; }
+  draft.topic = chosen.custom;
 
   let p = editingPoint;
   if (p) Object.assign(p, draft);
   else {
     if (!tcpSpaceLeft()) { toast('No Modbus TCP space left: the gateway serves up to 64 RS485 points'); return; }
-    p = { id: nextPointId(), kind: 'rs485', ...draft, tcp: nextTcp(), topic: '', mqtt: true }; points().push(p);
+    p = { id: nextPointId(), kind: 'rs485', ...draft, tcp: nextTcp(), mqtt: true }; points().push(p);
   }
   persist(`${p.id} ${editingPoint ? 'saved' : 'added'} → Modbus TCP ${pointRef(p)} · MQTT ${topicOf(p)}`);
   flashId = p.id;
