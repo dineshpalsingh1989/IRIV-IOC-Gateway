@@ -32,7 +32,7 @@ Set it up in a friendly browser dashboard, install from the same page, done.</p>
 | :---: | --- | --- |
 | 🔘 | **Buttons, switches, proximity sensors** on DI0–DI10 | On/off states, debounced. DI1/3/5/7/9 can **count pulses** up to 5 kHz (flow and energy meters). |
 | 🌡️ | **4–20 mA or 0–10 V transmitters** on AN0/AN1 | Values in **your units** (bar, °C, %…), plus **wire-break alarms** when a 4–20 mA loop drops below 3.6 mA. |
-| 📟 | **RS485 Modbus RTU devices** (meters, drives, sensors) | Type the slave ID and register once: the value gets its **own Modbus TCP address and MQTT topic automatically**. Up to 64 values. |
+| 📟 | **RS485 Modbus RTU devices** (meters, drives, sensors) | Type the slave ID and register, click **Test read** to see the sensor answer, then add it: the value gets its **own Modbus TCP address and MQTT topic automatically**. Up to 64 values. |
 | 💡 | **Lamps, relays, contactors** on DO0–DO3 | Switch them from **SCADA** (Modbus coils) or **MQTT** (`ON`/`OFF`). |
 | 🔔 | The **built-in buzzer** | Beeps on a remote command, while an input is active, or when an analog value crosses a limit. Pick the pitch and pattern. |
 | 🖥️ | Your **SCADA / PLC** | Modbus TCP with the **same addresses as Cytron's own firmware**, so existing tags keep working. |

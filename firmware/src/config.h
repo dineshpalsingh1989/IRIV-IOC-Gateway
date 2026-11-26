@@ -65,3 +65,5 @@ struct GatewayConfig {
 // defaults. Returns false (and an error text) when the file is missing or unreadable; `out` then
 // holds the defaults. A true return may still carry a warning in `error` (e.g. a skipped point).
 bool loadConfig(const char* path, GatewayConfig& out, String& error);
+// SERIAL_8N1 ... from the dashboard's parity ("None", "Even", "Odd") and stop bits.
+uint16_t serialConfig(const char* parity, int stopBits);

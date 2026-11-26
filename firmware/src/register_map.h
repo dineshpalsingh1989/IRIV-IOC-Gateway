@@ -23,5 +23,5 @@ const uint16_t RS485_REGS = 128;   // room for 64 points
 
 #define GATEWAY_VERSION_MAJOR 0
 #define GATEWAY_VERSION_MINOR 3
-#define GATEWAY_VERSION_PATCH 2
-#define GATEWAY_VERSION_TEXT "0.3.2" // keep equal to the three numbers above (read by tools/build_site.py)
+#define GATEWAY_VERSION_PATCH 3
+#define GATEWAY_VERSION_TEXT "0.3.3" // keep equal to the three numbers above (read by tools/build_site.py)

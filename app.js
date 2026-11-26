@@ -287,10 +287,16 @@ function renderPoints() {
       <td>${FC[p.fn].bool ? '<span class="muted">—</span>' : `×${num(p.scale)}`} ${escapeHtml(p.unit)}</td>
       <td><code class="ref">${pointRef(p)}</code></td>
       <td><code class="topic-code">${escapeHtml(topicOf(p))}</code></td>
-      <td><span class="muted" title="Values appear once the device service is polling the bus">—</span></td>
+      <td>${pointValue(p)}</td>
       <td class="row-actions"><span class="actions"><button type="button" class="icon-button" data-pt-edit="${p.id}" aria-label="Edit ${p.id} ${escapeHtml(p.name)}">${icon('pencil')}</button><button type="button" class="icon-button danger" data-pt-delete="${p.id}" aria-label="Delete ${p.id} ${escapeHtml(p.name)}">${icon('trash')}</button></span></td>
     </tr>`).join('');
   flashId = null;
+}
+// Live value from the controller when this page comes from it; a dash in the preview.
+function pointValue(p) {
+  const live = device.status?.rs485?.find(x => x.id === p.id);
+  if (!live) return `<span class="muted" title="Live values show when this page is opened from the controller">—</span>`;
+  return live.value === null ? '<span class="badge danger">no reply</span>' : `${num(live.value)} ${escapeHtml(p.unit)}`;
 }
 function renderMaps() {
   const idCell = c => `<td><span class="channel-id">${c.id}</span><small class="pin">${c.kind === 'rs485' ? 'RS485' : `GP${c.pin}`}</small></td><td class="channel-name">${escapeHtml(c.label ?? c.name)}</td>`;
@@ -448,6 +454,7 @@ function resetPointForm() {
   ptForm.reset(); editingPoint = null; $('#pt-type').innerHTML = ''; // back to int16
   $('#pt-submit span').textContent = 'Add point'; $('#pt-cancel').hidden = true;
   $$('input', ptForm).forEach(el => el.setCustomValidity(''));
+  $('#pt-test').hidden = true; // a new form starts without an old result
   syncPointForm();
 }
 function editPoint(id) {
@@ -485,6 +492,51 @@ ptForm.addEventListener('submit', e => {
   resetPointForm(); renderPoints(); renderMaps(); renderOverview();
   $('#pt-name').focus();
 });
+/* ---------- RS485: test a sensor before adding it ---------- */
+// Same word handling as decode() in firmware/lib/IRIVModbus (IRIVModbusCore.cpp).
+function decodeRegs(regs, type, order) {
+  if (type === 'bool') return regs[0] ? 1 : 0;
+  if (type === 'int16') return regs[0] << 16 >> 16;
+  if (type === 'uint16') return regs[0];
+  let [high, low] = order === 'CDAB' || order === 'DCBA' ? [regs[1], regs[0]] : [regs[0], regs[1]];
+  if (order === 'BADC' || order === 'DCBA') { const swap = w => ((w & 0xff) << 8) | (w >> 8); high = swap(high); low = swap(low); }
+  const view = new DataView(new ArrayBuffer(4));
+  view.setUint16(0, high); view.setUint16(2, low);
+  return type === 'float32' ? view.getFloat32(0) : type === 'int32' ? view.getInt32(0) : view.getUint32(0);
+}
+// Reads the point in the form once, with the bus settings on this page (saved or not), through the controller:
+// over the LAN when this page comes from the controller, or over USB after Connect on the Install page.
+async function testPoint() {
+  const fn = $('#pt-fn').value, bool = FC[fn].bool, type = bool ? 'bool' : $('#pt-type').value || 'int16';
+  const q = {
+    slave: Number($('#pt-slave').value), fn: { coil: 1, discrete: 2, holding: 3, input: 4 }[fn], reg: Number($('#pt-reg').value),
+    count: ['int32', 'uint32', 'float32'].includes(type) ? 2 : 1,
+    baud: $('#rs485-baud').value, parity: $('#rs485-parity').value, stop: $('#rs485-stop').value, timeout: $('#rs485-timeout').value || '500'
+  };
+  const out = $('#pt-test');
+  const show = (html, cls) => { out.hidden = false; out.className = `test-result ${cls}`; out.innerHTML = html; };
+  const usb = typeof link !== 'undefined' && link; // install.js: the open USB connection
+  if (!device.live && !usb) {
+    show(`${icon('info')}<span>Connect to the controller first: open this page from the controller (<code>http://its-IP/</code>), or click <b>Connect over USB</b> on the <a href="#install">Install</a> page.</span>`, 'info');
+    return;
+  }
+  show(`${icon('clock')}<span>Reading slave ${q.slave} ${FC[fn].short} register ${q.reg} at ${q.baud} baud…</span>`, 'info');
+  let r;
+  try {
+    r = device.live
+      ? await (await fetch(`api/rs485/read?${new URLSearchParams({ ...q, parity: q.parity })}`, { cache: 'no-store' })).json()
+      : await usb.request(`RTUREAD ${q.slave} ${q.fn} ${q.reg} ${q.count} ${q.baud} ${q.parity[0]} ${q.stop} ${q.timeout}`, ['rturead'], Number(q.timeout) + 3000);
+  } catch (e) { show(`${icon('alert')}<span>${escapeHtml(e.message)}</span>`, 'bad'); return; }
+  if (!r.ok) {
+    show(`${icon('alert')}<span><b>No good answer from slave ${q.slave}:</b> ${escapeHtml(r.error || 'no reply')}${r.exception ? ` (exception ${r.exception})` : ''}. Check the slave ID, wiring (A, B, G), baud rate and parity.</span>`, 'bad');
+    return;
+  }
+  const scale = bool ? 1 : Number($('#pt-scale').value) || 1;
+  const value = decodeRegs(r.regs, type, $('#rs485-word').value) * scale;
+  const raw = r.regs.map(w => `0x${w.toString(16).toUpperCase().padStart(4, '0')}`).join(' ');
+  show(`${icon('check')}<span><b>Slave ${q.slave} answered: ${num(value)} ${escapeHtml($('#pt-unit').value.trim())}</b> <small class="muted">raw ${raw} · ${type}${scale !== 1 ? ` × ${num(scale)}` : ''}</small>. Add it to give it its Modbus TCP address and MQTT topic.</span>`, 'ok');
+}
+$('#pt-test-btn').addEventListener('click', () => testPoint());
 function deletePoint(id) {
   const p = points().find(x => x.id === id);
   if (!p || !confirm(`Delete ${p.id} (${p.name})? Modbus TCP ${pointRef(p)} will no longer be served.`)) return;
@@ -614,6 +666,7 @@ function applyStatus(s) {
     else if (c.kind === 'analog-input') c.value = s.io.an[c.address];
     else if (c.kind === 'buzzer' && c.trigger === 'remote') c.value = !!s.io.buzzer;
   }
+  if (s.rs485.length) renderPoints(); // live point values
   $('#mode-pill').classList.add('live');
   $('#mode-pill').lastChild.textContent = ` Live · ${s.host} · ${s.ip} · v${s.version}`;
   $('#dev-state').textContent = 'Running';

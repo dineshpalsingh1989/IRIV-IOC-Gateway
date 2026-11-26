@@ -20,12 +20,6 @@ void copyText(char* out, size_t size, JsonVariantConst v) {
     strlcpy(out, text ? text : "", size);
 }
 
-uint16_t serialConfig(const char* parity, int stopBits) {
-    const bool two = stopBits == 2;
-    if (parity && !strcmp(parity, "Even")) return two ? SERIAL_8E2 : SERIAL_8E1;
-    if (parity && !strcmp(parity, "Odd")) return two ? SERIAL_8O2 : SERIAL_8O1;
-    return two ? SERIAL_8N2 : SERIAL_8N1;
-}
 
 uint8_t functionCode(const char* fn) {
     if (!fn) return 3;
@@ -35,6 +29,13 @@ uint8_t functionCode(const char* fn) {
     return 3;
 }
 } // namespace
+
+uint16_t serialConfig(const char* parity, int stopBits) {
+    const bool two = stopBits == 2;
+    if (parity && !strcmp(parity, "Even")) return two ? SERIAL_8E2 : SERIAL_8E1;
+    if (parity && !strcmp(parity, "Odd")) return two ? SERIAL_8O2 : SERIAL_8O1;
+    return two ? SERIAL_8N2 : SERIAL_8N1;
+}
 
 // `c` must be freshly constructed (defaults). It is not reset here: a temporary
 // GatewayConfig (about 25 KB) would overflow the core's stack.

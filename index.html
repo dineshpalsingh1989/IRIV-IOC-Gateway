@@ -285,7 +285,7 @@
         <section class="panel map-panel" aria-labelledby="pt-title" id="rs485-panel">
           <div class="panel-heading">
             <span class="protocol-icon rs485"><svg class="i" aria-hidden="true"><use href="#i-server"/></svg></span>
-            <div><h2 id="pt-title">RS485 points</h2><p>Enter the slave ID and register to read. Each point gets its Modbus TCP address and MQTT topic automatically.</p></div>
+            <div><h2 id="pt-title">RS485 points</h2><p><b>1</b> Set the bus above and enter the sensor's slave ID and register. <b>2</b> Click <b>Test read</b>: the controller reads the sensor once. <b>3</b> Add it: it gets its Modbus TCP address and MQTT topic automatically.</p></div>
           </div>
           <form class="pt-form" id="pt-form">
             <label class="field span-2"><span>Name</span><input id="pt-name" required maxlength="32" placeholder="e.g. Flow meter" autocomplete="off" /></label>
@@ -298,9 +298,11 @@
             <div class="pt-actions span-all">
               <p class="assign-preview" id="pt-preview"></p>
               <button type="button" class="button button-secondary" id="pt-cancel" hidden>Cancel</button>
+              <button type="button" class="button button-secondary" id="pt-test-btn"><svg class="i" aria-hidden="true"><use href="#i-plug"/></svg>Test read</button>
               <button type="submit" class="button button-dark" id="pt-submit"><svg class="i" aria-hidden="true"><use href="#i-plus"/></svg><span>Add point</span></button>
             </div>
           </form>
+          <p class="test-result" id="pt-test" role="status" hidden></p>
           <div class="table-wrap" id="pt-table">
             <table class="channel-table map-table">
               <caption class="sr-only">RS485 points</caption>

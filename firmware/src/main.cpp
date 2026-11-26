@@ -51,6 +51,18 @@ struct PointValue { float value = NAN; uint32_t errors = 0; uint8_t failedInRow 
 static PointValue pointValues[GatewayConfig::MaxPoints];
 auto_init_mutex(pointLock);
 
+// ---- RS485 test read ("Test read" in the dashboard), asked by core 0, done by core 1 (it owns Serial2) ----
+struct BusTest {
+    uint8_t slave, function, count;
+    uint16_t reg, serial;
+    uint32_t baud, timeoutMs;
+    irivmb::RtuResult result;
+    uint8_t exception;
+    uint16_t regs[2];
+};
+static BusTest busTest;
+static volatile uint8_t busTestState = 0; // 0 idle, 1 asked, 2 done
+
 // ---- Live state on core 0 ----
 static float analogValue[2] = {NAN, NAN};
 static iriv::AnalogFault analogFault[2];
@@ -467,6 +479,38 @@ static void receiveFirmware(long size, const char* md5) {
     rp2040.reboot(); // the boot stage installs the new firmware, then starts it
 }
 
+// Reads one point once with the given bus settings, so a sensor can be checked before it is added.
+// Blocks core 0 for at most the timeout plus 1.5 s while core 1 does the read.
+static void fillBusTest(JsonDocument& d, long slave, long function, long reg, long count, long baud,
+                        const char* parity, long stopBits, long timeoutMs) {
+    d["type"] = "rturead";
+    if (slave < 1 || slave > 247 || function < 1 || function > 4 || reg < 0 || reg > 65535 || count < 1 || count > 2 ||
+        reg + count > 65536 || baud < 1200 || baud > 921600 || timeoutMs < 50 || timeoutMs > 5000 || (stopBits != 1 && stopBits != 2)) {
+        d["ok"] = false;
+        d["error"] = "bad request: slave 1-247, function 1-4, register 0-65535, 1 or 2 registers, timeout 50-5000 ms";
+        return;
+    }
+    if (busTestState) { d["ok"] = false; d["error"] = "another test read is running"; return; }
+    busTest.slave = uint8_t(slave);
+    busTest.function = uint8_t(function);
+    busTest.reg = uint16_t(reg);
+    busTest.count = uint8_t(count);
+    busTest.baud = uint32_t(baud);
+    busTest.serial = serialConfig(parity, int(stopBits));
+    busTest.timeoutMs = uint32_t(timeoutMs);
+    busTestState = 1;
+    const uint32_t start = millis();
+    while (busTestState != 2 && millis() - start < uint32_t(timeoutMs) + 1500) { rp2040.wdt_reset(); delay(2); }
+    if (busTestState != 2) { busTestState = 0; d["ok"] = false; d["error"] = "RS485 core busy"; return; }
+    const bool ok = busTest.result == irivmb::RtuResult::Ok;
+    d["ok"] = ok;
+    if (!ok) d["error"] = irivmb::rtuResultText(busTest.result);
+    if (busTest.exception) d["exception"] = busTest.exception;
+    JsonArray regs = d.createNestedArray("regs");
+    if (ok) for (uint8_t i = 0; i < busTest.count; ++i) regs.add(busTest.regs[i]);
+    busTestState = 0;
+}
+
 static void serviceUsbCommands() {
     static char line[64];
     static size_t used = 0;
@@ -489,6 +533,16 @@ static void serviceUsbCommands() {
             char* md5 = nullptr;
             const long size = strtol(line + 7, &md5, 10);
             receiveFirmware(size, md5 && *md5 == ' ' ? md5 + 1 : "");
+        }
+        else if (!strncmp(line, "RTUREAD ", 8)) {
+            // RTUREAD <slave> <function> <register> <count> <baud> <parity N|E|O> <stop bits> <timeout ms>
+            long a[4], baud, stopBits, timeoutMs;
+            char parity = 'N';
+            StaticJsonDocument<256> d;
+            if (sscanf(line + 8, "%ld %ld %ld %ld %ld %c %ld %ld", &a[0], &a[1], &a[2], &a[3], &baud, &parity, &stopBits, &timeoutMs) == 8)
+                fillBusTest(d, a[0], a[1], a[2], a[3], baud, parity == 'E' ? "Even" : parity == 'O' ? "Odd" : "None", stopBits, timeoutMs);
+            else { d["type"] = "rturead"; d["ok"] = false; d["error"] = "usage: RTUREAD slave function register count baud N|E|O stopbits timeout"; }
+            replyJson(d);
         }
         else if (!strncmp(line, "TIME ", 5)) setClock(strtoul(line + 5, nullptr, 10));
         else if (!strcmp(line, "REBOOT")) { Serial.flush(); delay(100); rp2040.reboot(); }
@@ -615,6 +669,12 @@ static void startWeb() {
         webJson(d);
     });
     web.on("/api/login", HTTP_GET, [] { if (webAllowed()) web.send(200, "application/json", "{\"type\":\"login\"}"); });
+    web.on("/api/rs485/read", HTTP_GET, [] { // reading is harmless, so it needs no password, like the page itself
+        StaticJsonDocument<256> d;
+        fillBusTest(d, web.arg("slave").toInt(), web.arg("fn").toInt(), web.arg("reg").toInt(), web.arg("count").toInt(),
+                    web.arg("baud").toInt(), web.arg("parity").c_str(), web.arg("stop").toInt(), web.arg("timeout").toInt());
+        webJson(d);
+    });
     web.on("/api/selftest", HTTP_GET, [] { DynamicJsonDocument d(1024); fillSelfTest(d); webJson(d); });
     web.on("/api/config", HTTP_GET, webGetConfig);
     web.on("/api/config", HTTP_POST, webPostConfig);
@@ -736,16 +796,28 @@ static IRIVModbusRTUMaster rtu(Serial2);
 
 void setup1() {
     while (!ready) delay(10);
-    if (!cfg.rs485Enabled || !cfg.pointCount) return;
-    Serial2.setTX(PIN_SERIAL2_TX);
+    Serial2.setTX(PIN_SERIAL2_TX); // also needed for test reads while polling is off
     Serial2.setRX(PIN_SERIAL2_RX);
+    if (!cfg.rs485Enabled || !cfg.pointCount) return;
     rtu.begin(cfg.rs485Baud, cfg.rs485Serial, cfg.rs485TimeoutMs);
+}
+
+// A test read uses the bus settings it was given, then puts the polling settings back.
+static void runBusTest() {
+    rtu.begin(busTest.baud, busTest.serial, busTest.timeoutMs);
+    busTest.result = busTest.function <= 2
+        ? rtu.readBits(busTest.slave, busTest.function, busTest.reg, busTest.count, busTest.regs)
+        : rtu.readRegisters(busTest.slave, busTest.function, busTest.reg, busTest.count, busTest.regs);
+    busTest.exception = rtu.lastException();
+    if (cfg.rs485Enabled && cfg.pointCount) rtu.begin(cfg.rs485Baud, cfg.rs485Serial, cfg.rs485TimeoutMs);
+    busTestState = 2;
 }
 
 void loop1() {
     static uint8_t next = 0;
     static uint32_t due = 0;
-    if (!ready || !cfg.rs485Enabled || !cfg.pointCount) { delay(100); return; }
+    if (ready && busTestState == 1) { runBusTest(); return; }
+    if (!ready || !cfg.rs485Enabled || !cfg.pointCount) { delay(5); return; }
     const uint32_t now = millis();
     if (int32_t(now - due) < 0) { delay(1); return; }
     due = now + cfg.rs485PollMs / cfg.pointCount; // each point is read once per poll interval

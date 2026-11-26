@@ -36,6 +36,7 @@ The USB setup protocol it uses (115200 baud, one line per command; replies are `
 | `STATUS` | `{"type":"status", ip, link, online, modbus{clients,requests}, mqtt{connected}, rs485[{id,value,errors}], rtc}` |
 | `SELFTEST` | `{"type":"selftest","ethernetChip","link","ip","rtc","flash":{mounted,total,used},"settings":{saved,note},"temperature","di":[11],"an":[2 volts]}`. Raw facts; the installer judges pass or fail. `ethernetChip` is false when the W5500 did not answer at start-up. |
 | `IDENTIFY` | beeps and fast-blinks the USR LED for 3 s; replies `{"type":"identify"}` |
+| `RTUREAD <slave> <function 1-4> <register> <count 1-2> <baud> <N|E|O> <stop bits> <timeout ms>` | reads one RS485 point once with those bus settings (also while polling is off), for the dashboard's **Test read**: `{"type":"rturead","ok","regs":[..],"error","exception"}` (from 0.3.3) |
 | `TESTOUTPUTS` | runs a light along DO0–DO3 (DO0, DO1, DO2, DO3, DO2, DO1, twice, 3 s), then puts the outputs back as Modbus/MQTT set them; replies `{"type":"testoutputs"}` (from 0.3.2) |
 | `TIME <unix UTC>` | sets the RTC and clears its lost flag; replies `{"type":"time","rtc":{...}}`. The installer sends this computer's time when the clock is lost or more than 2 s off. |
 | `CONFIG <bytes>` then exactly that many bytes of JSON | `{"type":"saved"}`, then a restart. The file is checked with the real loader before it replaces the old one. |
@@ -87,6 +88,7 @@ The controller serves the dashboard itself (`index.html`, `app.js`, `styles.css`
 | `GET /api/status` | no | `STATUS` plus `io` (`di`, `do`, `an` in V or mA, `count`, `buzzer`) and `webPassword` (whether one is set) |
 | `GET /api/selftest` | no | `SELFTEST` |
 | `GET /api/config` | no | the saved `ioc_config.json` with `mqtt.pass` blanked and `web` removed |
+| `GET /api/rs485/read?slave=&fn=&reg=&count=&baud=&parity=&stop=&timeout=` | no | `RTUREAD`: reads one sensor once (Test read) |
 | `GET /api/login` | yes | checks the password |
 | `POST /api/config` | yes | saves new settings (checked like `CONFIG`), then restarts. Empty passwords keep the saved ones |
 | `POST /api/update?size=&md5=` | yes | firmware `.bin` as a multipart file, installed like `UPDATE` |

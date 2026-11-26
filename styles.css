@@ -83,6 +83,9 @@ button, input, select { font: inherit; color: inherit; }
 .mode-pill.live { border-color: #cfe3d6; background: var(--green-soft); color: var(--green); }
 .mode-pill.live i { background: var(--green); }
 .on-device .preview-only { display: none; }
+.test-result { display: flex; gap: 8px; align-items: flex-start; margin: 0 0 14px; padding: 10px 12px; border-radius: 8px; font-size: 14px; border: 1px solid var(--line-soft); background: var(--surface-2); }
+.test-result.ok { background: var(--green-soft); border-color: #cfe3d6; }
+.test-result.bad { background: #fbeceb; border-color: #f0cfcb; }
 .top-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
 
 .page { display: none; padding-top: 32px; }
