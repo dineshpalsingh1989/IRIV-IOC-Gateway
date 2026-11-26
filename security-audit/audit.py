@@ -40,7 +40,10 @@ def scan_ports(ip, ports, timeout):
 
 # ---- Modbus TCP (port 502) ----
 def modbus_request(ip, fc, payload, unit=255, timeout=3):
-    s = socket.create_connection((ip, 502), timeout=timeout)
+    try:
+        s = socket.create_connection((ip, 502), timeout=timeout)
+    except OSError:
+        return None
     try:
         pdu = bytes([fc]) + payload
         s.sendall(struct.pack(">HHHB", 1, 0, len(pdu) + 1, unit) + pdu)
@@ -55,6 +58,8 @@ def modbus_request(ip, fc, payload, unit=255, timeout=3):
                 break
             body += chunk
         return body
+    except OSError:
+        return None  # a unit the gateway does not answer just times out: treat as no reply
     finally:
         s.close()
 

@@ -190,13 +190,41 @@ index.html, app.js, styles.css   the dashboard (no build step, no dependencies)
 install.js                       the web installer (Web Serial + File System Access)
 .github/workflows/build.yml      checks, firmware build, GitHub Pages and releases
 firmware/                        PlatformIO project for the IRIV IOC (RP2350A)
-security-audit/                  LAN security auditor for your own gateway (scan, probe, report)
   src/                           gateway: Ethernet, I/O, Modbus TCP, MQTT, RS485 on core 1
   lib/                           our libraries
   tools/                         register-map check and PC tests
   data/                          put ioc_config.json here (example included)
+security-audit/                  LAN security auditor for your own gateway (scan, probe, report)
 docs/                            README images and screenshots
 ```
+
+## 🔐 Security: audit your own gateway
+
+A gateway puts your machines on the network, so check it the way an attacker would. The
+[`security-audit/`](security-audit/README.md) folder has a tool that scans the device over the LAN, probes each
+service for weak spots and reports back — on **a device you own**:
+
+```sh
+python security-audit/audit.py 192.168.0.206          # read-only: scan + probe + ranked report
+python security-audit/audit.py 192.168.0.206 --active # also prove weaknesses (toggles DO0, then restores it)
+```
+
+It checks the open ports, the **Modbus TCP** server (no login: any host can read every register and switch the
+outputs), and the **web page** (plain HTTP, which endpoints answer without a password, whether stored passwords
+are blanked, whether any write is accepted unauthenticated, the open RS485 read). Each finding is ranked
+high → info with what it means and how to fix it.
+
+Most findings on a healthy gateway are **by design** — Modbus has no authentication and the page is meant to be
+readable — so the real takeaway is almost always **keep this device on a trusted, isolated network and never
+expose it to the internet**. Python standard library only; `python security-audit/selftest.py` runs it against a
+mock controller and is part of CI.
+
+**We run this audit on the gateway.** A unit on firmware 0.3.2 reported only the expected by-design findings
+(Modbus has no login; the page is plain HTTP and readable) and nothing worse: the write endpoints correctly
+refused unauthenticated requests and passwords were not leaked. The posture, the hardening checklist and a viewer
+for your own report are on the **[Security page](https://dineshpalsingh1989.github.io/IRIV-IOC-Gateway/security.html)**.
+
+> Only run it against equipment you own or are authorised to test.
 
 ## 🚧 Status
 

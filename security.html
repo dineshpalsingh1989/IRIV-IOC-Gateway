@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Security · IRIV IOC Gateway</title>
+<meta name="description" content="Security posture, hardening checklist and audit report viewer for the IRIV IOC Gateway.">
+<style>
+  :root {
+    --bg: #0f172a; --bg2: #16283e; --line: #35516b; --ink: #f1f5f9; --muted: #a9c2d7;
+    --accent: #38bdf8; --high: #f87171; --med: #fbbf24; --low: #7dd3fc; --info: #94a3b8; --ok: #34d399;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: linear-gradient(160deg, #0f172a, #16364a); color: var(--ink);
+    font: 16px/1.6 "Segoe UI", system-ui, Arial, sans-serif; padding: 0 16px; }
+  .wrap { max-width: 920px; margin: 0 auto; padding: 32px 0 64px; }
+  a { color: var(--accent); }
+  header.top { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: baseline; justify-content: space-between; }
+  .eyebrow { color: var(--accent); letter-spacing: 3px; font-size: 13px; text-transform: uppercase; }
+  h1 { font-size: 34px; margin: 6px 0 4px; }
+  h2 { font-size: 22px; margin: 36px 0 12px; }
+  .lede { color: var(--muted); font-size: 18px; margin: 0 0 8px; }
+  .card { background: var(--bg2); border: 1px solid var(--line); border-radius: 14px; padding: 18px 20px; margin: 14px 0; }
+  .grid { display: grid; gap: 14px; grid-template-columns: 1fr 1fr; }
+  @media (max-width: 680px) { .grid { grid-template-columns: 1fr; } }
+  ul { margin: 8px 0; padding-left: 20px; } li { margin: 6px 0; }
+  code, pre { font-family: Consolas, "Courier New", monospace; }
+  pre { background: #0b1626; border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; overflow: auto; color: #d6e5db; }
+  .pill { display: inline-block; font-size: 12px; font-weight: 700; padding: 2px 10px; border-radius: 999px; }
+  .pill.high { background: #7f1d1d; color: #fecaca; } .pill.medium { background: #78350f; color: #fde68a; }
+  .pill.low { background: #0c4a6e; color: #bae6fd; } .pill.info { background: #334155; color: #cbd5e1; }
+  .finding { border-left: 4px solid var(--line); padding: 2px 0 2px 14px; margin: 14px 0; }
+  .finding.high { border-color: var(--high); } .finding.medium { border-color: var(--med); }
+  .finding.low { border-color: var(--low); } .finding.info { border-color: var(--info); }
+  .finding h3 { margin: 4px 0; font-size: 17px; }
+  .finding p { margin: 4px 0; color: var(--muted); }
+  .finding .fix { color: var(--ink); } .finding .fix b { color: var(--ok); }
+  .ports span { display: inline-block; background: #0b1626; border: 1px solid var(--line); border-radius: 8px;
+    padding: 3px 10px; margin: 3px 4px 0 0; font-family: Consolas, monospace; }
+  .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 10px 0; }
+  input, button { font: inherit; }
+  input[type=text] { background: #0b1626; border: 1px solid var(--line); border-radius: 8px; color: var(--ink);
+    padding: 8px 12px; min-width: 180px; }
+  button { background: var(--accent); color: #042c3a; border: 0; border-radius: 8px; padding: 8px 16px; font-weight: 700; cursor: pointer; }
+  button.ghost { background: transparent; color: var(--accent); border: 1px solid var(--line); }
+  .muted { color: var(--muted); } .small { font-size: 14px; }
+  .meta { color: var(--muted); font-size: 14px; }
+  .check { color: var(--ok); } .cross { color: var(--high); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <div class="eyebrow">IRIV IOC Gateway</div>
+      <h1>Security</h1>
+    </div>
+    <nav class="small"><a href="./">← Dashboard &amp; installer</a> · <a href="https://github.com/dineshpalsingh1989/IRIV-IOC-Gateway">Source</a> · <a href="https://github.com/dineshpalsingh1989/IRIV-IOC-Gateway/wiki">Wiki</a></nav>
+  </header>
+  <p class="lede">How the gateway is exposed, how to lock it down, and a tool that audits it the way an attacker would.</p>
+
+  <h2>The short version</h2>
+  <div class="card">
+    <p>A gateway puts your machines on the network. It speaks <b>Modbus TCP</b> (so SCADA and PLCs can read and
+    control it) and serves a <b>web page</b> (so you can set it up and watch it). Both are meant for a
+    <b>trusted, local network</b> — like every industrial Modbus device, they have no built-in login.</p>
+    <p><b>The one rule that matters:</b> keep the gateway on an isolated OT network or VLAN, reachable only by the
+    hosts that need it, and <b>never</b> port-forward it to the internet or put it on guest Wi-Fi.</p>
+  </div>
+
+  <h2>Harden it</h2>
+  <div class="grid">
+    <div class="card">
+      <h3 style="margin-top:0">Network</h3>
+      <ul>
+        <li>Put it on an <b>isolated OT VLAN</b>; allow Modbus (502) only from your SCADA/PLC host.</li>
+        <li>Block ports 80 and 502 at the firewall from everywhere else.</li>
+        <li>For remote access use a <b>VPN</b>, never a public port.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0">The device</h3>
+      <ul>
+        <li>Set a <b>web password</b> (Connections → Web page) and send it over USB once.</li>
+        <li>Include the passwords only when you send settings, and keep the config file safe.</li>
+        <li>Keep firmware current from the <a href="./#install">web installer</a>.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>Audit your own gateway</h2>
+  <div class="card">
+    <p>The repo ships a scanner. Run it against <b>a device you own</b>: it scans the ports, probes Modbus and the
+    web page for weak spots, and prints a ranked report.</p>
+    <pre>python security-audit/audit.py 192.168.0.206            # read-only
+python security-audit/audit.py 192.168.0.206 --json report.json
+python security-audit/audit.py 192.168.0.206 --active  # proves a Modbus write (toggles DO0, restores it)</pre>
+    <p class="small muted">Only run it against equipment you own or are authorised to test.</p>
+  </div>
+
+  <h2>Report</h2>
+  <div class="row">
+    <button id="load-btn">Load a report.json</button>
+    <input type="file" id="file" accept="application/json,.json" hidden>
+    <button class="ghost" id="example-btn">Show the example</button>
+    <span class="meta" id="report-meta"></span>
+  </div>
+  <div id="report"></div>
+
+  <h2>Is a gateway reachable?</h2>
+  <div class="card">
+    <div class="row">
+      <input type="text" id="ip" placeholder="192.168.0.206" autocomplete="off">
+      <button id="check-btn">Check</button>
+      <span id="check-out" class="meta"></span>
+    </div>
+    <p class="small muted">A quick look only: it asks the device's open <code>/api/status</code>. Browsers block a
+    plain-HTTP request from an <code>https://</code> page, so this works when you open this page locally or when
+    the controller serves it itself, not from GitHub Pages over https.</p>
+  </div>
+
+  <footer class="meta" style="margin-top:40px">
+    This page is advisory. The audit tool only reads by default. — IRIV IOC Gateway
+  </footer>
+</div>
+
+<script>
+// The real audit of a unit on 2026-11-26, shown as the example. Load your own report.json to replace it.
+const EXAMPLE = {
+  "target": "192.168.0.206", "time": "2026-11-26 (example)", "open_ports": [80, 502],
+  "findings": [
+    { "severity": "high", "title": "Modbus TCP 502 is open with no authentication",
+      "detail": "Modbus has no login: any host on the LAN can read every register and write the coils, which switch the real outputs DO0-DO3, sound the buzzer and reset the counters. This is how Modbus works, not a firmware bug.",
+      "fix": "Put the device on an isolated OT VLAN, allow port 502 only from the SCADA/PLC host, and never expose it to the internet." },
+    { "severity": "medium", "title": "The web page is plain HTTP on port 80",
+      "detail": "The dashboard and API are unencrypted. The password check uses HTTP digest (not sent in the clear), but the rest of the session is readable on the network path.",
+      "fix": "Keep it on a trusted, isolated LAN. Do not port-forward it; use a VPN for remote access." },
+    { "severity": "medium", "title": "Device information is readable without a password",
+      "detail": "/api/status, /api/selftest and /api/config answer anyone on the LAN: IP, uptime, MQTT broker, flash, temperature and the RS485 map. By design, so the page can be viewed read-only.",
+      "fix": "Keep the device off untrusted networks; this only helps an attacker who is already on your LAN." },
+    { "severity": "medium", "title": "No web password is set",
+      "detail": "Writes are correctly refused, but no password is configured, so nobody can manage the device over the LAN until one is set.",
+      "fix": "Set a web password under Connections → Web page and send the settings over USB once." },
+    { "severity": "info", "title": "No extra HTTP security headers",
+      "detail": "No HSTS/CSP headers; minor on a plain-HTTP LAN device.",
+      "fix": "Not worth changing for a LAN tool." }
+  ]
+};
+const order = { high: 0, medium: 1, low: 2, info: 3 };
+const esc = s => String(s).replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+
+function render(r, label) {
+  const meta = document.getElementById("report-meta");
+  const el = document.getElementById("report");
+  if (r.error) { el.innerHTML = `<div class="card">${esc(r.error)}</div>`; meta.textContent = ""; return; }
+  const counts = {};
+  (r.findings || []).forEach(f => counts[f.severity] = (counts[f.severity] || 0) + 1);
+  const summary = ["high", "medium", "low", "info"].filter(s => counts[s]).map(s => `${counts[s]} ${s}`).join(" · ");
+  meta.textContent = `${label} — ${r.target || "?"} · ${r.time || ""}`;
+  const findings = [...(r.findings || [])].sort((a, b) => (order[a.severity] ?? 9) - (order[b.severity] ?? 9));
+  el.innerHTML = `<div class="card">
+    <div class="ports"><b>Open ports:</b> ${(r.open_ports || []).map(p => `<span>${p}</span>`).join("") || '<span class="muted">none</span>'}</div>
+    <p class="meta" style="margin:10px 0 0">${findings.length} findings${summary ? " · " + summary : ""}</p>
+    ${findings.map(f => `<div class="finding ${esc(f.severity)}">
+      <span class="pill ${esc(f.severity)}">${esc(f.severity).toUpperCase()}</span>
+      <h3>${esc(f.title)}</h3>
+      <p>${esc(f.detail)}</p>
+      <p class="fix"><b>Fix:</b> ${esc(f.fix)}</p>
+    </div>`).join("")}
+  </div>`;
+}
+
+document.getElementById("example-btn").onclick = () => render(EXAMPLE, "Example");
+document.getElementById("load-btn").onclick = () => document.getElementById("file").click();
+document.getElementById("file").onchange = e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try { render(JSON.parse(reader.result), file.name); }
+    catch { render({ error: "That file is not a valid audit report (JSON)." }, ""); }
+  };
+  reader.readAsText(file);
+};
+document.getElementById("check-btn").onclick = async () => {
+  const ip = document.getElementById("ip").value.trim();
+  const out = document.getElementById("check-out");
+  if (!ip) { out.textContent = "Enter an IP address."; return; }
+  out.textContent = "Checking…";
+  try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 4000);
+    const r = await fetch(`http://${ip}/api/status`, { signal: ctrl.signal, cache: "no-store" });
+    clearTimeout(t);
+    const s = await r.json();
+    out.innerHTML = `<span class="check">● online</span> — ${esc(s.host || ip)} · firmware ${esc(s.version || "?")} · ${esc(s.ip || ip)}. Its status is readable without a password (expected).`;
+  } catch {
+    out.innerHTML = `<span class="cross">could not reach it from this page.</span> If the page is on https (GitHub Pages), the browser blocks a plain-http request — open this file locally or use the audit tool.`;
+  }
+};
+render(EXAMPLE, "Example");
+</script>
+</body>
+</html>
