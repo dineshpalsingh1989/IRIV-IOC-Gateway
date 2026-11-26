@@ -190,6 +190,7 @@ index.html, app.js, styles.css   the dashboard (no build step, no dependencies)
 install.js                       the web installer (Web Serial + File System Access)
 .github/workflows/build.yml      checks, firmware build, GitHub Pages and releases
 firmware/                        PlatformIO project for the IRIV IOC (RP2350A)
+security-audit/                  LAN security auditor for your own gateway (scan, probe, report)
   src/                           gateway: Ethernet, I/O, Modbus TCP, MQTT, RS485 on core 1
   lib/                           our libraries
   tools/                         register-map check and PC tests
