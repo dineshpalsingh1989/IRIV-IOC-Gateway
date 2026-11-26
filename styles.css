@@ -80,6 +80,10 @@ button, input, select { font: inherit; color: inherit; }
 .crumb b { color: var(--ink); font-weight: 600; }
 .mode-pill { display: inline-flex; align-items: center; gap: 8px; border: 1px solid #ecdfc2; background: var(--amber-soft); border-radius: 999px; padding: 5px 12px; color: var(--amber); font-size: 12px; font-weight: 600; white-space: nowrap; }
 .mode-pill i { width: 7px; height: 7px; border-radius: 50%; background: #d19a3a; }
+.mode-pill.live { border-color: #cfe3d6; background: var(--green-soft); color: var(--green); }
+.mode-pill.live i { background: var(--green); }
+.on-device .preview-only { display: none; }
+.top-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
 
 .page { display: none; padding-top: 32px; }
 .page.active { display: block; animation: fade .2s ease-out; }

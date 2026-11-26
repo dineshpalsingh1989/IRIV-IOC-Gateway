@@ -69,7 +69,10 @@
     <main class="main" id="main" tabindex="-1">
       <header class="topbar">
         <div class="crumb">Devices <span aria-hidden="true">/</span> <b>IRIV IOC</b> <span class="tag" id="top-version" hidden></span></div>
-        <span class="mode-pill"><i aria-hidden="true"></i> Preview · simulated data</span>
+        <div class="top-actions">
+          <span class="mode-pill" id="mode-pill"><i aria-hidden="true"></i> Preview · simulated data</span>
+          <button type="button" class="button button-dark" id="save-device" hidden><svg class="i" aria-hidden="true"><use href="#i-check"/></svg>Save to controller</button>
+        </div>
       </header>
 
       <!-- OVERVIEW -->
@@ -82,12 +85,12 @@
           </div>
           <button type="button" class="button button-secondary" data-export><svg class="i" aria-hidden="true"><use href="#i-download"/></svg><span class="btn-text">Export setup</span></button>
         </div>
-        <div class="notice" role="note"><svg class="i notice-icon" aria-hidden="true"><use href="#i-info"/></svg><span><b>Preview mode.</b> Channel values are simulated. Tap inputs and outputs to try your setup, then put it on the controller from the <a href="#install">Install</a> page.</span><button type="button" class="notice-close" aria-label="Dismiss notice"><svg class="i" aria-hidden="true"><use href="#i-x"/></svg></button></div>
+        <div class="notice preview-only" role="note"><svg class="i notice-icon" aria-hidden="true"><use href="#i-info"/></svg><span><b>Preview mode.</b> Channel values are simulated. Tap inputs and outputs to try your setup, then put it on the controller from the <a href="#install">Install</a> page.</span><button type="button" class="notice-close" aria-label="Dismiss notice"><svg class="i" aria-hidden="true"><use href="#i-x"/></svg></button></div>
 
         <div class="status-strip">
-          <div class="device-status"><span class="status-led" aria-hidden="true"></span><span><b>Ready to configure</b><small>Setup is saved in this browser</small></span></div>
+          <div class="device-status"><span class="status-led" aria-hidden="true"></span><span><b id="dev-state">Ready to configure</b><small id="dev-state-note">Setup is saved in this browser</small></span></div>
           <div class="status-meta"><svg class="i" aria-hidden="true"><use href="#i-cpu"/></svg><span><small>Controller</small><b>RP2350A</b></span></div>
-          <div class="status-meta"><svg class="i" aria-hidden="true"><use href="#i-ethernet"/></svg><span><small>Network</small><b>Not connected</b></span></div>
+          <div class="status-meta"><svg class="i" aria-hidden="true"><use href="#i-ethernet"/></svg><span><small>Network</small><b id="dev-network">Not connected</b></span></div>
           <a class="button button-dark" href="#connections">Set up connection <svg class="i" aria-hidden="true"><use href="#i-arrow-right"/></svg></a>
         </div>
 
@@ -97,13 +100,13 @@
             <div class="card-top"><span class="metric-icon input"><svg class="i" aria-hidden="true"><use href="#i-input"/></svg></span><h3 id="di-title">Digital inputs</h3></div>
             <div class="metric-line"><strong id="di-count">0</strong><span>/ 11 active</span></div>
             <div class="led-panel" id="di-leds"></div>
-            <p class="card-note">Tap an LED to simulate an input</p>
+            <p class="card-note preview-only">Tap an LED to simulate an input</p>
           </article>
           <article class="summary-card" aria-labelledby="do-title">
             <div class="card-top"><span class="metric-icon output"><svg class="i" aria-hidden="true"><use href="#i-output"/></svg></span><h3 id="do-title">Digital outputs</h3></div>
             <div class="metric-line"><strong id="do-count">0</strong><span>/ 4 on</span></div>
             <div class="do-tiles" id="do-tiles"></div>
-            <p class="card-note">Tap to toggle · preview only</p>
+            <p class="card-note preview-only">Tap to toggle · preview only</p>
           </article>
           <article class="summary-card" aria-labelledby="an-title">
             <div class="card-top"><span class="metric-icon analog"><svg class="i" aria-hidden="true"><use href="#i-gauge"/></svg></span><h3 id="an-title">Analog inputs</h3></div>
@@ -236,6 +239,16 @@
               </div>
               <div class="callout"><small>Lost the address?</small><p>Hold the USER button while powering up: the controller starts on 192.168.4.1 for a laptop plugged in directly.</p></div>
             </section>
+            <section class="panel config-panel" aria-labelledby="web-title">
+              <div class="config-title">
+                <span class="protocol-icon network large"><svg class="i" aria-hidden="true"><use href="#i-shield"/></svg></span>
+                <div><h2 id="web-title">Web page</h2><p>The controller shows this dashboard, with live values, at http://its-IP-address/.</p></div>
+              </div>
+              <div class="form-grid">
+                <label class="field span-2"><span>Password <small>user admin</small></span><input id="web-pass" type="password" autocomplete="new-password" /></label>
+                <p class="edit-help span-2">Anyone on the LAN can look at the page. Saving settings, updating the firmware and testing outputs from it need this password. Send it over USB once; on the controller's own page, leave it empty to keep the saved one.</p>
+              </div>
+            </section>
             <section class="panel config-panel" aria-labelledby="modbus-title">
               <div class="config-title">
                 <span class="protocol-icon modbus large"><svg class="i" aria-hidden="true"><use href="#i-server"/></svg></span>
@@ -334,7 +347,7 @@
           <div>
             <div class="eyebrow"><svg class="i i-sm" aria-hidden="true"><use href="#i-usb"/></svg> Install</div>
             <h1 id="install-title" tabindex="-1">Install on the controller</h1>
-            <p class="subhead">Plug the controller into this computer with USB-C. No tools to install: everything happens in the browser.</p>
+            <p class="subhead" id="inst-subhead">Plug the controller into this computer with USB-C. No tools to install: everything happens in the browser.</p>
           </div>
         </div>
         <div class="notice" role="note" id="inst-browser" hidden><svg class="i notice-icon" aria-hidden="true"><use href="#i-alert"/></svg><span><b>Use Chrome or Edge on a computer.</b> This browser cannot talk to USB devices. You can still download the firmware and copy it to the controller by hand.</span></div>
@@ -343,7 +356,16 @@
         <div class="detected" id="inst-check" hidden>
           <div id="inst-check-rows"></div>
           <div class="btn-row check-actions"><button type="button" class="button button-secondary" id="inst-identify"><svg class="i" aria-hidden="true"><use href="#i-bell"/></svg>Beep and blink</button><small class="muted">Which controller is this? It beeps and flashes its USR LED for 3 s.</small></div>
+          <div class="btn-row check-actions"><button type="button" class="button button-secondary" id="inst-outputs"><svg class="i" aria-hidden="true"><use href="#i-output"/></svg>Test outputs</button><small class="muted">Runs a light along DO0–DO3 for 3 s to check the output relays. Disconnect anything wired to them first.</small></div>
         </div>
+
+        <section class="panel step-card" id="inst-web" hidden>
+          <div class="step-head"><span class="step-num"><svg class="i" aria-hidden="true"><use href="#i-download"/></svg></span><div><h2>Update from GitHub</h2><p id="inst-web-version">Checking GitHub…</p></div></div>
+          <div class="step-body single">
+            <div class="btn-row"><button type="button" class="button button-dark" id="inst-web-update"><svg class="i" aria-hidden="true"><use href="#i-download"/></svg><span>Install update</span></button></div>
+            <p class="muted" id="inst-web-note" hidden>No web password on this controller yet, so this page can only look. Set one under Connections and send the settings over USB once.</p>
+          </div>
+        </section>
 
         <ol class="install-steps">
           <li class="panel step-card">
@@ -379,7 +401,7 @@
             <div class="step-head"><span class="step-num">2</span><div><h2>Send your settings</h2><p>Everything you set up in this dashboard, sent over USB.</p></div></div>
             <div class="step-body single">
               <ul class="send-summary" id="inst-summary"></ul>
-              <label class="check-field" id="inst-pass-row"><input type="checkbox" id="inst-pass"> Include the MQTT password (it is stored on the controller)</label>
+              <label class="check-field" id="inst-pass-row"><input type="checkbox" id="inst-pass"> Include the passwords: MQTT broker and web page (they are stored on the controller)</label>
               <div class="btn-row">
                 <button type="button" class="button button-secondary" id="inst-connect"><svg class="i" aria-hidden="true"><use href="#i-usb"/></svg>Connect over USB</button>
                 <button type="button" class="button button-dark" id="inst-send" disabled><svg class="i" aria-hidden="true"><use href="#i-check"/></svg>Send settings</button>
@@ -398,7 +420,7 @@
         </ol>
       </section>
 
-      <footer class="footer"><span>FIELDNOTE · IRIV IOC setup</span><span>Configuration stored in this browser</span></footer>
+      <footer class="footer"><span>FIELDNOTE · IRIV IOC setup</span><span id="footer-store">Configuration stored in this browser</span></footer>
     </main>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>

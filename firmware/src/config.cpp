@@ -47,6 +47,7 @@ bool loadConfig(const char* path, GatewayConfig& c, String& error) {
     filter["network"] = true;
     filter["modbus"] = true;
     filter["rs485"] = true; // settings plus points[]
+    filter["web"]["password"] = true;
     for (const char* key : {"id", "mode", "scaleLo", "scaleHi", "counter", "trigger", "compare", "threshold", "freq", "pattern", "silence"})
         filter["channels"][0][key] = true;
     for (const char* key : {"enabled", "host", "port", "tls", "ca", "client", "user", "pass", "retain", "qos", "interval"})
@@ -89,6 +90,7 @@ bool loadConfig(const char* path, GatewayConfig& c, String& error) {
     c.mqttRetain = mq["retain"] | true;
     c.mqttSubscribeQos = number(mq["qos"], 0) >= 1 ? 1 : 0;
     c.mqttIntervalMs = uint32_t(constrain(number(mq["interval"], 5), 0.1f, 3600.0f) * 1000);
+    copyText(c.webPassword, sizeof(c.webPassword), doc["web"]["password"]);
 
     JsonObjectConst rs = doc["rs485"];
     c.rs485Enabled = rs["enabled"] | false;

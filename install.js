@@ -13,6 +13,7 @@ let customFile = null; // { name, bytes } picked by the user
 let link = null;       // open IocLink
 let statusTimer = null;
 let check = null;      // last controller check: { result (SELFTEST reply), at } or { unsupported: version }
+let outputsSeen = null; // Test outputs: true/false as answered by the user, null = not tested on this controller
 const detected = {};   // what we learned about the connected device: usb, drive, hello, other (non-gateway firmware)
 
 // Chip a .uf2 is built for, by its UF2 family ID. The bootloader ignores files for another chip.
@@ -117,7 +118,9 @@ function checkRows(t) {
     ['Settings', !st.saved ? 'None yet: running on defaults' : st.note ? `Saved, but: ${escapeHtml(st.note)}` : 'Saved and loaded', !st.saved ? 'info' : st.note ? 'bad' : 'ok'],
     ['Chip temperature', `${t.temperature.toFixed(1)} °C`, t.temperature < 85 ? 'ok' : 'bad'],
     ['Analog inputs', `AN0 ${t.an[0].toFixed(2)} V · AN1 ${t.an[1].toFixed(2)} V`, 'info'],
-    ['Digital inputs', `${leds} <small class="muted">switch an input on: it lights up here</small>`, 'info']
+    ['Digital inputs', `${leds} <small class="muted">switch an input on: it lights up here</small>`, 'info'],
+    outputsSeen === null ? ['Outputs DO0–DO3', 'Not tested: click Test outputs', 'info']
+      : ['Outputs DO0–DO3', outputsSeen ? 'Switched one after another' : 'Not seen switching: check the outputs', outputsSeen ? 'ok' : 'bad']
   ];
 }
 const checkProblems = () => check?.result ? checkRows(check.result).filter(r => r[2] === 'bad').map(r => r[0]) : [];
@@ -125,7 +128,7 @@ const checkProblems = () => check?.result ? checkRows(check.result).filter(r => 
 function renderCheck() {
   $('#inst-check').hidden = !check;
   if (!check) return;
-  $('#inst-identify').hidden = !check.result;
+  $('#inst-identify').hidden = $('#inst-outputs').hidden = !check.result;
   if (!check.result) {
     $('#inst-check-rows').innerHTML = rowsHtml('Controller check', [['Self-test', `Firmware ${escapeHtml(check.unsupported)} has no self-test (it came in 0.3.0). Install the update, then connect again to check the hardware.`, 'info']]);
     return;
@@ -374,7 +377,7 @@ function renderSummary() {
     ['Analog', config.channels.filter(x => x.kind === 'analog-input').map(x => `${x.id} ${x.mode}`).join(' · ')]
   ];
   $('#inst-summary').innerHTML = items.map(([k, v]) => `<li><span>${k}</span><b>${escapeHtml(v)}</b></li>`).join('');
-  $('#inst-pass-row').hidden = !c.mqtt.pass;
+  $('#inst-pass-row').hidden = !(c.mqtt.pass || c.web.password);
 }
 
 async function connect(port) {
@@ -394,6 +397,7 @@ async function connect(port) {
     await disconnect();
     throw new Error(`This controller runs ${detected.other}. Install the gateway firmware in step 1 first.`);
   }
+  if (detected.hello?.uid !== hello.uid) outputsSeen = null; // another controller
   detected.hello = hello;
   detected.other = null;
   await syncClock(hello);
@@ -406,7 +410,7 @@ async function connect(port) {
     toast(`Warning: this controller has a ${hello.chip}; the firmware is built for ${hello.builtFor}. Pins may not match.`);
   }
   refreshStatus();
-  statusTimer = setInterval(refreshStatus, 3000);
+  statusTimer = setInterval(refreshStatus, 1000); // fast enough to see an input switched by hand
 }
 
 // Sets the controller's RTC from this computer when it lost its time or is more than 2 s off.
@@ -471,7 +475,7 @@ async function disconnect() {
 }
 
 async function sendSettings() {
-  const text = JSON.stringify(buildConfigFile($('#inst-pass').checked && !!config.mqtt.pass));
+  const text = JSON.stringify(buildConfigFile($('#inst-pass').checked));
   const bytes = new TextEncoder().encode(text);
   $('#inst-send').disabled = true;
   try {
@@ -503,6 +507,71 @@ async function refreshStatus() {
   if (link && check?.result) await runChecks(link).catch(() => {}); // keeps the digital inputs live
 }
 
+// ---------- on the controller (http://<its IP>/): update from GitHub over the LAN ----------
+// Browsers only allow USB on secure pages, so here the page downloads the published firmware from GitHub and
+// uploads it to the controller, which checks the MD5 before installing. Changes need the web password.
+const GITHUB_SITE = 'https://dineshpalsingh1989.github.io/IRIV-IOC-Gateway/';
+const onDevice = () => typeof device !== 'undefined' && device.live;
+
+async function startWebInstall(status) {
+  $('#inst-browser').hidden = true;
+  $('.install-steps').hidden = true;
+  $('#inst-web').hidden = false;
+  try { manifest = await (await fetch(`${GITHUB_SITE}firmware/manifest.json`, { cache: 'no-store' })).json(); } catch { manifest = null; }
+  detected.hello = { version: status.version };
+  renderVersion();
+  $('#inst-subhead').textContent = 'This page is served by the controller. Updates come from GitHub over your LAN; first installs still use USB from the website.';
+  const latest = manifest?.version, diff = latest ? cmpVersion(status.version, latest) : 0, behind = diff < 0;
+  $('#inst-web-version').innerHTML = !latest ? `This controller runs <b>${escapeHtml(status.version)}</b>. GitHub cannot be reached from this computer, so there is nothing to install.`
+    : behind ? `This controller runs <b>${escapeHtml(status.version)}</b> · <b>${escapeHtml(latest)}</b> is on GitHub`
+    : diff > 0 ? `This controller runs <b>${escapeHtml(status.version)}</b>, newer than GitHub (${escapeHtml(latest)})`
+    : `This controller runs <b>${escapeHtml(status.version)}</b>, the newest on GitHub`;
+  $('#inst-web-update').hidden = diff > 0; // never offer an older version
+  $('#inst-web-update').disabled = !manifest?.builds?.[0]?.update;
+  $('#inst-web-update span').textContent = behind ? `Install ${latest} from GitHub` : 'Reinstall from GitHub';
+  $('#inst-web-note').hidden = !!status.webPassword;
+  const refreshCheck = async () => {
+    try { check = { result: await (await fetch('api/selftest', { cache: 'no-store' })).json(), at: Date.now() }; renderCheck(); } catch { /* next time */ }
+  };
+  refreshCheck();
+  setInterval(() => { if (location.hash === '#install') refreshCheck(); }, 2000);
+}
+
+// POST to a write endpoint; the browser asks for the web password (user admin) when needed.
+async function webAction(path, init = {}) {
+  const r = await fetch(path, { method: 'POST', ...init });
+  if (!r.ok) throw new Error(r.status === 401 ? 'Wrong password' : await r.text());
+  return r;
+}
+
+async function updateFromGitHub() {
+  const update = manifest?.builds?.[0]?.update;
+  if (!update) throw new Error('GitHub has no firmware update file');
+  if (!device.status?.webPassword) throw new Error('No web password on the controller yet: set one under Connections and send the settings over USB once');
+  if (!confirm(`Install firmware ${manifest.version} from GitHub on this controller?\n\nIt restarts by itself. DO0–DO3 switch off while it restarts.`)) return;
+  const login = await fetch('api/login'); // asks for the password before the upload, not after it
+  if (!login.ok) throw new Error(login.status === 401 ? 'Wrong password' : await login.text());
+  toast(`Downloading ${manifest.version} from GitHub…`);
+  const r = await fetch(`${GITHUB_SITE}firmware/${update.file}`, { cache: 'no-store' });
+  if (!r.ok) throw new Error(`Could not download the firmware (${r.status})`);
+  const bytes = await r.arrayBuffer();
+  if (bytes.byteLength !== update.size) throw new Error('The download is incomplete. Nothing was written.');
+  const form = new FormData();
+  form.append('firmware', new Blob([bytes]), update.file);
+  toast('Installing… keep the controller powered');
+  await webAction(`api/update?size=${update.size}&md5=${update.md5}`, { body: form });
+  toast('Installed. The controller is restarting…');
+  for (let i = 0; i < 30; i++) {
+    await wait(2000);
+    try {
+      const s = await (await fetch('api/status', { cache: 'no-store' })).json();
+      if (s.version === manifest.version) { toast(`Now running ${s.version}`); setTimeout(() => location.reload(), 1500); return; }
+    } catch { /* still restarting */ }
+  }
+  toast('The controller has not come back yet: reload this page in a moment');
+}
+guard('#inst-web-update', updateFromGitHub);
+
 // ---------- wiring ----------
 function guard(button, action) {
   $(button).addEventListener('click', async () => {
@@ -517,8 +586,20 @@ guard('#inst-write', writeFirmware);
 guard('#inst-connect', async () => connect(await choosePort()));
 guard('#inst-send', sendSettings);
 guard('#inst-identify', async () => {
+  if (onDevice()) { await webAction('api/identify'); return; }
   if (!link) throw new Error('Connect over USB first (step 2)');
   await link.request('IDENTIFY', ['identify'], 2500);
+});
+guard('#inst-outputs', async () => {
+  if (!onDevice() && !link) throw new Error('Connect over USB first (step 2)');
+  if (cmpVersion(detected.hello.version, '0.3.2') < 0) throw new Error('Output test needs firmware 0.3.2 or newer: click Check and install first');
+  if (!confirm('This switches DO0, DO1, DO2 and DO3 on one after another for 3 seconds.\n\nDisconnect anything wired to the outputs that must not switch. Go on?')) return;
+  if (onDevice()) await webAction('api/testoutputs'); else await link.request('TESTOUTPUTS', ['testoutputs'], 2500);
+  logLine('Output test: DO0 → DO1 → DO2 → DO3 → DO2 → DO1, twice');
+  await wait(3300);
+  outputsSeen = confirm('Did the DO0–DO3 lights switch on one after another?\n\nOK = yes, Cancel = no');
+  logLine(`Output test: ${outputsSeen ? 'outputs switched' : 'outputs NOT seen switching'}`);
+  renderCheck();
 });
 $('#inst-file').addEventListener('change', async e => {
   const file = e.target.files[0];

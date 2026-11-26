@@ -54,7 +54,8 @@ const defaults = () => ({
   // Publishing is QoS 0 in WilcoxonMqtt; `qos` is the subscribe QoS for output/buzzer commands.
   mqtt: { enabled: false, host: '', port: '1883', tls: false, ca: '', client: 'iriv-ioc-01', topic: 'factory/line01/ioc01', user: '', pass: '', qos: '0', retain: true, interval: '5' },
   modbus: { enabled: true, port: '502', unit: '255', wordOrder: 'ABCD' },
-  rs485: { enabled: false, baud: '9600', parity: 'None', stopBits: '1', poll: '1000', timeout: '500', wordOrder: 'ABCD', points: [] }
+  rs485: { enabled: false, baud: '9600', parity: 'None', stopBits: '1', poll: '1000', timeout: '500', wordOrder: 'ABCD', points: [] },
+  web: { password: '' } // the controller's own web page (user admin)
 });
 let config = loadConfig();
 let selectedChannel = null;
@@ -73,26 +74,28 @@ const clampPct = n => Math.min(100, Math.max(0, n));
 const num = n => Number(n).toLocaleString(undefined, { maximumFractionDigits: 2 });
 
 function loadConfig() {
-  try {
-    const stored = JSON.parse(localStorage.getItem(STORAGE_KEY));
-    const fresh = defaults();
-    if (!stored) return fresh;
-    let storedPoints = (Array.isArray(stored.rs485?.points) ? stored.rs485.points : []).map(p => ({ ...p, kind: 'rs485' }));
-    // Points saved before the Cytron-compatible map started at 100: move them into the RS485 block.
-    if (storedPoints.some(p => !(p.tcp >= MB.RS485))) storedPoints = storedPoints.map((p, i) => ({ ...p, tcp: MB.RS485 + 2 * i }));
-    const { wsPort, ...storedMqtt } = stored.mqtt || {}; // an option the IRIV IOC does not support
-    return {
-      network: { ...fresh.network, ...stored.network },
-      mqtt: { ...fresh.mqtt, ...storedMqtt, qos: storedMqtt.qos === '1' ? '1' : '0' },
-      modbus: { ...fresh.modbus, ...stored.modbus },
-      rs485: { ...fresh.rs485, ...stored.rs485, points: storedPoints },
-      channels: fresh.channels.map(c => {
-        const s = (stored.channels || []).find(x => x.id === c.id) || {};
-        for (const k of EDITABLE) if (k in c && s[k] !== undefined) c[k] = s[k];
-        return c;
-      })
-    };
-  } catch { return defaults(); }
+  try { return normalizeConfig(JSON.parse(localStorage.getItem(STORAGE_KEY))); } catch { return defaults(); }
+}
+// A saved setup (this browser, or ioc_config.json from the controller) on top of today's defaults.
+function normalizeConfig(stored) {
+  const fresh = defaults();
+  if (!stored) return fresh;
+  let storedPoints = (Array.isArray(stored.rs485?.points) ? stored.rs485.points : []).map(p => ({ ...p, kind: 'rs485' }));
+  // Points saved before the Cytron-compatible map started at 100: move them into the RS485 block.
+  if (storedPoints.some(p => !(p.tcp >= MB.RS485))) storedPoints = storedPoints.map((p, i) => ({ ...p, tcp: MB.RS485 + 2 * i }));
+  const { wsPort, ...storedMqtt } = stored.mqtt || {}; // an option the IRIV IOC does not support
+  return {
+    network: { ...fresh.network, ...stored.network },
+    mqtt: { ...fresh.mqtt, ...storedMqtt, qos: storedMqtt.qos === '1' ? '1' : '0' },
+    modbus: { ...fresh.modbus, ...stored.modbus },
+    rs485: { ...fresh.rs485, ...stored.rs485, points: storedPoints },
+    web: { ...fresh.web, ...stored.web },
+    channels: fresh.channels.map(c => {
+      const s = (stored.channels || []).find(x => x.id === c.id) || {};
+      for (const k of EDITABLE) if (k in c && s[k] !== undefined) c[k] = s[k];
+      return c;
+    })
+  };
 }
 function persist(message = 'Setup saved in this browser') {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(config)); toast(message); }
@@ -312,6 +315,7 @@ function toggleValue(id) {
   const c = byId(id);
   if (!c || !['digital-input', 'digital-output', 'buzzer'].includes(c.kind) || (c.kind === 'buzzer' && c.trigger !== 'remote')) return;
   if (c.counter) { toast(`${c.id} is counting pulses; turn the counter off to use it as an on/off input`); return; }
+  if (device.live) { toast(c.kind === 'digital-input' ? `${c.id} is live: switch it at the terminal` : 'Live values: switch outputs and the buzzer from SCADA (Modbus) or MQTT'); return; }
   // keep keyboard focus on the same control after re-render
   const container = document.activeElement?.dataset?.toggle === id ? document.activeElement.closest('[id]').id : null;
   c.value = !c.value;
@@ -495,6 +499,7 @@ function fillConnectionForm() {
   $('#net-dhcp').checked = n.dhcp; $('#net-ip').value = n.ip; $('#net-subnet').value = n.subnet; $('#net-gateway').value = n.gateway; $('#net-dns').value = n.dns;
   $('#mqtt-enabled').checked = m.enabled; $('#mqtt-host').value = m.host; $('#mqtt-port').value = m.port; $('#mqtt-tls').checked = m.tls; $('#mqtt-ca').value = m.ca; $('#mqtt-client').value = m.client; $('#mqtt-topic').value = m.topic; $('#mqtt-user').value = m.user; $('#mqtt-pass').value = m.pass;
   $('#mqtt-qos').value = m.qos; $('#mqtt-retain').checked = m.retain; $('#mqtt-interval').value = m.interval;
+  $('#web-pass').value = config.web.password;
   $('#modbus-enabled').checked = b.enabled; $('#modbus-port').value = b.port; $('#modbus-unit').value = b.unit; $('#modbus-word').value = b.wordOrder;
   $('#rs485-enabled').checked = r.enabled; $('#rs485-baud').value = r.baud; $('#rs485-parity').value = r.parity; $('#rs485-stop').value = r.stopBits; $('#rs485-poll').value = r.poll; $('#rs485-timeout').value = r.timeout; $('#rs485-word').value = r.wordOrder;
   syncNetworkFields(); syncMqttRequired(); updateTopicPreview(); setDirty(false);
@@ -504,7 +509,8 @@ function readConnectionForm() {
     network: { dhcp: $('#net-dhcp').checked, ip: $('#net-ip').value.trim(), subnet: $('#net-subnet').value.trim(), gateway: $('#net-gateway').value.trim(), dns: $('#net-dns').value.trim() },
     mqtt: { enabled: $('#mqtt-enabled').checked, host: $('#mqtt-host').value.trim(), port: $('#mqtt-port').value || '1883', tls: $('#mqtt-tls').checked, ca: $('#mqtt-ca').value.trim(), client: $('#mqtt-client').value.trim(), topic: $('#mqtt-topic').value.trim(), user: $('#mqtt-user').value, pass: $('#mqtt-pass').value, qos: $('#mqtt-qos').value, retain: $('#mqtt-retain').checked, interval: $('#mqtt-interval').value },
     modbus: { enabled: $('#modbus-enabled').checked, port: $('#modbus-port').value || '502', unit: $('#modbus-unit').value || '255', wordOrder: $('#modbus-word').value },
-    rs485: { enabled: $('#rs485-enabled').checked, baud: $('#rs485-baud').value, parity: $('#rs485-parity').value, stopBits: $('#rs485-stop').value, poll: $('#rs485-poll').value, timeout: $('#rs485-timeout').value, wordOrder: $('#rs485-word').value }
+    rs485: { enabled: $('#rs485-enabled').checked, baud: $('#rs485-baud').value, parity: $('#rs485-parity').value, stopBits: $('#rs485-stop').value, poll: $('#rs485-poll').value, timeout: $('#rs485-timeout').value, wordOrder: $('#rs485-word').value },
+    web: { password: $('#web-pass').value }
   };
 }
 // Broker and topic are only required once MQTT is switched on; the browser then validates them inline
@@ -527,7 +533,7 @@ connForm.addEventListener('change', () => setDirty(true));
 connForm.addEventListener('submit', e => {
   e.preventDefault();
   const next = readConnectionForm();
-  config.network = next.network; config.mqtt = next.mqtt; config.modbus = next.modbus; Object.assign(config.rs485, next.rs485); // keep the RS485 points
+  config.network = next.network; config.mqtt = next.mqtt; config.modbus = next.modbus; config.web = next.web; Object.assign(config.rs485, next.rs485); // keep the RS485 points
   persist('Connection settings saved'); setDirty(false); refresh(); renderMaps(); renderPoints(); syncPointForm();
 });
 $('#mqtt-enabled').addEventListener('change', syncMqttRequired);
@@ -556,23 +562,77 @@ document.addEventListener('change', e => {
 /* ---------- Export: ioc_config.json for the gateway firmware ---------- */
 // The saved setup (never the unsaved form) as the file the firmware reads. Also sent by the installer.
 function buildConfigFile(includePass) {
-  const { mqtt, ...rest } = config;
+  const { mqtt, web, ...rest } = config;
   const map = {
     mqtt: owners().filter(c => c.mqtt).map(c => ({ source: c.id, publish: topicOf(c), ...(hasCmd(c) && { subscribe: topicOf(c, 'cmdTopic') }) })),
     modbusTcp: modbusRows().map(r => ({ source: r.source, name: r.name, table: r.table, address: r.address, registers: r.width, plcReference: plcRef(r.table, r.address, r.width), format: r.format }))
   };
-  return { format: 'iriv-ioc-gateway-config', version: 4, exportedAt: new Date().toISOString(), ...rest, mqtt: { ...mqtt, pass: includePass ? mqtt.pass : '' }, map };
+  return { format: 'iriv-ioc-gateway-config', version: 4, exportedAt: new Date().toISOString(), ...rest, mqtt: { ...mqtt, pass: includePass ? mqtt.pass : '' }, web: { password: includePass ? web.password : '' }, map };
 }
 function exportConfig() {
-  const { mqtt } = config;
-  // The firmware needs the broker password; it is only included when the user agrees.
-  const includePass = !!mqtt.pass && confirm('Include the MQTT password in ioc_config.json?\n\nThe controller needs it to log in to the broker, but anyone with the file can read it. Choose Cancel to leave it out and add it to the file yourself.');
+  const { mqtt, web } = config;
+  // The firmware needs the passwords; they are only included when the user agrees.
+  const includePass = !!(mqtt.pass || web.password) && confirm('Include the passwords (MQTT broker and web page) in ioc_config.json?\n\nThe controller needs them, but anyone with the file can read them. Choose Cancel to leave them out and add them to the file yourself.');
   const data = buildConfigFile(includePass);
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
   a.download = 'ioc_config.json'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-  toast(`ioc_config.json downloaded${dirty ? ' · unsaved connection edits not included' : ''}${mqtt.pass && !includePass ? ' · MQTT password left out' : ''}`);
+  toast(`ioc_config.json downloaded${dirty ? ' · unsaved connection edits not included' : ''}${(mqtt.pass || web.password) && !includePass ? ' · passwords left out' : ''}`);
 }
+
+/* ---------- On the controller: live values and saving over the LAN ---------- */
+// When the controller itself serves this page (http://<its IP>/), api/status answers: the page then loads the
+// controller's settings, shows live values every 2 s and saves straight to it. On the website it stays a preview.
+const device = { live: false, status: null };
+async function connectDevice() {
+  let s;
+  try {
+    const r = await fetch('api/status', { cache: 'no-store' });
+    if (!r.ok || !(r.headers.get('content-type') || '').includes('json')) return;
+    s = await r.json();
+  } catch { return; }
+  device.live = true;
+  document.body.classList.add('on-device');
+  try {
+    const r = await fetch('api/config', { cache: 'no-store' });
+    if (r.ok) config = normalizeConfig(await r.json()); // what the controller runs, not this browser's copy
+  } catch { /* keep the browser's copy */ }
+  $('#save-device').hidden = false;
+  renderMaps(); renderPoints(); fillConnectionForm();
+  applyStatus(s);
+  setInterval(async () => {
+    try { applyStatus(await (await fetch('api/status', { cache: 'no-store' })).json()); }
+    catch { $('#mode-pill').lastChild.textContent = ' Controller not answering'; $('#mode-pill').classList.remove('live'); }
+  }, 2000);
+  if (typeof startWebInstall === 'function') startWebInstall(s); // install.js: updates from GitHub
+}
+function applyStatus(s) {
+  device.status = s;
+  for (const c of config.channels) {
+    if (c.kind === 'digital-input') c.value = !!s.io.di[c.pin];
+    else if (c.kind === 'digital-output') c.value = !!s.io.do[c.pin - 12];
+    else if (c.kind === 'analog-input') c.value = s.io.an[c.address];
+    else if (c.kind === 'buzzer' && c.trigger === 'remote') c.value = !!s.io.buzzer;
+  }
+  $('#mode-pill').classList.add('live');
+  $('#mode-pill').lastChild.textContent = ` Live · ${s.host} · ${s.ip} · v${s.version}`;
+  $('#dev-state').textContent = 'Running';
+  $('#dev-state-note').textContent = `Up ${Math.floor(s.uptime / 60)} min · settings on the controller`;
+  $('#dev-network').textContent = `${s.ip} · MQTT ${!s.mqtt.enabled ? 'off' : s.mqtt.connected ? 'connected' : 'not connected'}`;
+  $('#footer-store').textContent = 'Settings on the controller';
+  refresh();
+}
+async function saveToDevice() {
+  if (dirty) { toast('Save the connection settings first'); return; }
+  if (!device.status?.webPassword) { toast('No web password on the controller yet: set one under Connections and send the settings over USB once'); return; }
+  if (!confirm('Send this setup to the controller? It restarts with the new settings (about 10 s).')) return;
+  const r = await fetch('api/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(buildConfigFile(true)) });
+  if (!r.ok) { toast(r.status === 401 ? 'Wrong password' : `Not saved: ${await r.text()}`); return; }
+  const reply = await r.json();
+  toast(reply.warning ? `Saved with a warning: ${reply.warning}. Restarting…` : 'Saved on the controller. It is restarting…');
+  setTimeout(() => location.reload(), 12000);
+}
+$('#save-device').addEventListener('click', () => saveToDevice().catch(e => toast(e.message)));
 
 /* ---------- Routing & global events ---------- */
 function route(focus = true) {
@@ -611,3 +671,4 @@ $('#reset-config').addEventListener('click', () => {
 });
 
 refresh(); renderMaps(); renderPoints(); resetPointForm(); fillConnectionForm(); route(false);
+connectDevice();

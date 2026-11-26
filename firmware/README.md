@@ -36,6 +36,7 @@ The USB setup protocol it uses (115200 baud, one line per command; replies are `
 | `STATUS` | `{"type":"status", ip, link, online, modbus{clients,requests}, mqtt{connected}, rs485[{id,value,errors}], rtc}` |
 | `SELFTEST` | `{"type":"selftest","ethernetChip","link","ip","rtc","flash":{mounted,total,used},"settings":{saved,note},"temperature","di":[11],"an":[2 volts]}`. Raw facts; the installer judges pass or fail. `ethernetChip` is false when the W5500 did not answer at start-up. |
 | `IDENTIFY` | beeps and fast-blinks the USR LED for 3 s; replies `{"type":"identify"}` |
+| `TESTOUTPUTS` | runs a light along DO0–DO3 (DO0, DO1, DO2, DO3, DO2, DO1, twice, 3 s), then puts the outputs back as Modbus/MQTT set them; replies `{"type":"testoutputs"}` (from 0.3.2) |
 | `TIME <unix UTC>` | sets the RTC and clears its lost flag; replies `{"type":"time","rtc":{...}}`. The installer sends this computer's time when the clock is lost or more than 2 s off. |
 | `CONFIG <bytes>` then exactly that many bytes of JSON | `{"type":"saved"}`, then a restart. The file is checked with the real loader before it replaces the old one. |
 | `UPDATE <bytes> <md5>` then exactly that many bytes of firmware `.bin` | `{"type":"updated"}`, then a restart that installs it (from 0.3.1). Arduino-Pico's Updater stores the image in LittleFS and checks the MD5; on a mismatch or short upload it replies an error and keeps the running firmware. The installer uses this for one-click updates. |
@@ -76,6 +77,22 @@ Addresses are 0-based protocol addresses. Rows marked **Cytron** are identical t
 Unit ID filter: the configured unit (default 255) and 255 are answered; 0 answers every unit. Float32 word order follows the Modbus setting (ABCD by default).
 
 **Fixed from Cytron's firmware:** the counter high word. Cytron v2.0.0 sends `count >> 8`, which is wrong above 65,535 pulses; this firmware sends `count >> 16`.
+
+## Web page (port 80)
+
+The controller serves the dashboard itself (`index.html`, `app.js`, `styles.css`, `install.js`, gzipped into the firmware by `tools/embed_web.py` at build time, about 41 KB). Opened from the controller, the page shows live values and talks to this API:
+
+| Request | Password | Does |
+| --- | --- | --- |
+| `GET /api/status` | no | `STATUS` plus `io` (`di`, `do`, `an` in V or mA, `count`, `buzzer`) and `webPassword` (whether one is set) |
+| `GET /api/selftest` | no | `SELFTEST` |
+| `GET /api/config` | no | the saved `ioc_config.json` with `mqtt.pass` blanked and `web` removed |
+| `GET /api/login` | yes | checks the password |
+| `POST /api/config` | yes | saves new settings (checked like `CONFIG`), then restarts. Empty passwords keep the saved ones |
+| `POST /api/update?size=&md5=` | yes | firmware `.bin` as a multipart file, installed like `UPDATE` |
+| `POST /api/testoutputs`, `/api/identify` | yes | output running light / beep and blink |
+
+The password is `web.password` in the settings (user `admin`, HTTP digest). Without one, every write answers 403 and the page is read-only. Plain HTTP: use it on a trusted LAN.
 
 ## MQTT
 

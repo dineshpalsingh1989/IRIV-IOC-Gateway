@@ -42,6 +42,7 @@ struct GatewayConfig {
     bool mqttRetain = true;
     uint8_t mqttSubscribeQos = 0;
     uint32_t mqttIntervalMs = 5000;
+    char webPassword[65] = ""; // controller web page (user admin); empty = the page is read-only
 
     bool rs485Enabled = false;
     uint32_t rs485Baud = 9600;

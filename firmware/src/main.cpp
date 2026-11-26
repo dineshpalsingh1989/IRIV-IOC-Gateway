@@ -9,6 +9,7 @@
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
 #include <Updater.h>
+#include <WebServer.h>
 #include <pico/mutex.h>
 #include <pico/unique_id.h>
 #include <hardware/structs/sysinfo.h>
@@ -20,6 +21,7 @@
 
 #include "config.h"
 #include "register_map.h"
+#include "web_files.h"
 
 using irivmb::Area;
 
@@ -33,6 +35,7 @@ static volatile bool ready = false; // core 1 waits for setup() to finish
 static bool ethernetStarted = false, fsMounted = false;
 static String settingsNote;          // why the settings file was not (fully) loaded
 static uint32_t identifyUntil = 0;   // IDENTIFY: beep and fast blink until this millis()
+static uint32_t outputTestStart = 0; // TESTOUTPUTS: running light on DO0-DO3 from this millis(); 0 = off
 
 // ---- Modbus TCP map storage ----
 static uint8_t diBits[11], doBits[4], buzzerBit[1], counterEnable[5], counterReset[5];
@@ -124,6 +127,18 @@ static void updateIo(uint32_t now) {
     buzzerSounding = buzzerState.update(wanted, now, cfg.buzzer, toneOn);
     if (int32_t(identifyUntil - now) > 0) io.buzzer(now / 250 % 2 == 0, 2700);
     else io.buzzer(toneOn, cfg.buzzer.frequency);
+
+    if (outputTestStart) {
+        // DO0, DO1, DO2, DO3, DO2, DO1 at 250 ms each, twice; then back to the commanded states.
+        static const uint8_t steps[] = {0, 1, 2, 3, 2, 1};
+        const uint32_t step = (now - outputTestStart) / 250;
+        if (step < 2 * sizeof(steps)) {
+            for (uint8_t i = 0; i < 4; ++i) io.setOutput(i, i == steps[step % sizeof(steps)]);
+        } else {
+            outputTestStart = 0;
+            for (uint8_t i = 0; i < 4; ++i) io.setOutput(i, doBits[i]);
+        }
+    }
 
     mutex_enter_blocking(&pointLock);
     for (uint8_t p = 0; p < cfg.pointCount; ++p)
@@ -299,8 +314,7 @@ static void sendHello() {
     replyJson(d);
 }
 
-static void sendStatus() {
-    DynamicJsonDocument d(6144);
+static void fillStatus(JsonDocument& d) {
     d["type"] = "status";
     d["version"] = GATEWAY_VERSION_TEXT;
     d["host"] = hostname;
@@ -332,12 +346,27 @@ static void sendStatus() {
         o["errors"] = pointValues[p].errors;
     }
     mutex_exit(&pointLock);
+    // Live I/O for the web page. Analog values are in the configured unit: V or mA.
+    JsonObject live = d.createNestedObject("io");
+    JsonArray di = live.createNestedArray("di");
+    for (uint8_t i = 0; i < 11; ++i) di.add(io.input(i));
+    JsonArray outs = live.createNestedArray("do");
+    for (uint8_t i = 0; i < 4; ++i) outs.add(io.output(i));
+    JsonArray an = live.createNestedArray("an");
+    for (uint8_t i = 0; i < 2; ++i) an.add(iriv::analogSignal(cfg.analogMode[i], io.adc(i), io.adcReference));
+    JsonArray counts = live.createNestedArray("count");
+    for (uint8_t k = 0; k < 5; ++k) counts.add(io.count(IRIVIOCIo::CounterInputs[k]));
+    live["buzzer"] = buzzerSounding;
+}
+
+static void sendStatus() {
+    DynamicJsonDocument d(6144);
+    fillStatus(d);
     replyJson(d);
 }
 
 // Raw facts for the installer's controller check; the installer decides pass or fail.
-static void sendSelfTest() {
-    DynamicJsonDocument d(1024);
+static void fillSelfTest(JsonDocument& d) {
     d["type"] = "selftest";
     d["ethernetChip"] = ethernetStarted; // begin() fails when the W5500 does not answer over SPI
     d["link"] = ethernet.linkUp();
@@ -355,7 +384,20 @@ static void sendSelfTest() {
     for (uint8_t i = 0; i < 11; ++i) di.add(io.input(i));
     JsonArray an = d.createNestedArray("an");
     for (uint8_t i = 0; i < 2; ++i) an.add(io.terminalVolts(i));
+}
+
+static void sendSelfTest() {
+    DynamicJsonDocument d(1024);
+    fillSelfTest(d);
     replyJson(d);
+}
+
+// Checks UploadPath with the real loader, then swaps it in for the saved settings (USB and web).
+static bool installUploadedConfig(String& error, String& warning) {
+    std::unique_ptr<GatewayConfig> check(new GatewayConfig()); // ~25 KB: heap, not stack
+    if (!loadConfig(UploadPath, *check, warning)) { LittleFS.remove(UploadPath); error = warning; return false; }
+    if (!LittleFS.rename(UploadPath, ConfigPath)) { error = "cannot save settings"; return false; } // replaces the old file
+    return true;
 }
 
 // Streams the upload into a temporary file, checks it with the real loader, then swaps it in
@@ -380,14 +422,8 @@ static void receiveConfig(long size) {
     file.close();
     if (received != size) { LittleFS.remove(UploadPath); replyError("upload incomplete or flash full"); return; }
 
-    std::unique_ptr<GatewayConfig> check(new GatewayConfig()); // ~25 KB: heap, not stack
-    String warning;
-    if (!loadConfig(UploadPath, *check, warning)) {
-        LittleFS.remove(UploadPath);
-        replyError(warning.c_str());
-        return;
-    }
-    if (!LittleFS.rename(UploadPath, ConfigPath)) { replyError("cannot save settings"); return; } // replaces the old file
+    String error, warning;
+    if (!installUploadedConfig(error, warning)) { replyError(error.c_str()); return; }
     StaticJsonDocument<384> d;
     d["type"] = "saved";
     d["bytes"] = size;
@@ -446,6 +482,7 @@ static void serviceUsbCommands() {
         if (!strcmp(line, "HELLO")) sendHello();
         else if (!strcmp(line, "STATUS")) sendStatus();
         else if (!strcmp(line, "SELFTEST")) sendSelfTest();
+        else if (!strcmp(line, "TESTOUTPUTS")) { outputTestStart = millis() | 1; StaticJsonDocument<64> d; d["type"] = "testoutputs"; d["ms"] = 3000; replyJson(d); }
         else if (!strcmp(line, "IDENTIFY")) { identifyUntil = millis() + 3000; StaticJsonDocument<64> d; d["type"] = "identify"; replyJson(d); }
         else if (!strncmp(line, "CONFIG ", 7)) receiveConfig(atol(line + 7));
         else if (!strncmp(line, "UPDATE ", 7)) {
@@ -458,6 +495,142 @@ static void serviceUsbCommands() {
         else if (!strcmp(line, "BOOTLOADER")) { Serial.flush(); delay(100); rp2040.rebootToBootloader(); }
         else if (line[0]) replyError("unknown command");
     }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Web page on port 80: the same dashboard as the website, with live values from this controller.
+// Reading is open; changing settings, updating firmware and switching outputs need the web password
+// (HTTP digest, user "admin"). Without a password set, the page is read-only.
+
+static WebServer web(80);
+static String updateError;   // set while a firmware upload is refused or fails
+static bool updateDone = false;
+
+static bool webAllowed() {
+    if (!cfg.webPassword[0]) {
+        web.send(403, "text/plain", "No web password set: set one under Connections and send the settings over USB");
+        return false;
+    }
+    if (web.authenticate("admin", cfg.webPassword)) return true;
+    web.requestAuthentication(DIGEST_AUTH, "IRIV IOC");
+    return false;
+}
+
+static void webJson(JsonDocument& d) {
+    String text;
+    serializeJson(d, text);
+    web.sendHeader("Cache-Control", "no-store");
+    web.send(200, "application/json", text);
+}
+
+// An empty password in an upload keeps the saved one: the page never receives the saved passwords.
+static void keepSecret(JsonDocument& doc, const char* section, const char* key, const char* saved) {
+    if (!*(doc[section][key] | "") && *saved) doc[section][key] = saved;
+}
+
+static void webGetConfig() {
+    File file = LittleFS.open(ConfigPath, "r");
+    if (!file) { web.send(404, "application/json", "{}"); return; }
+    DynamicJsonDocument doc(65536);
+    const DeserializationError error = deserializeJson(doc, file);
+    file.close();
+    if (error) { web.send(500, "text/plain", "saved settings unreadable"); return; }
+    if (doc["mqtt"].is<JsonObject>()) doc["mqtt"]["pass"] = ""; // passwords never leave the controller
+    doc.remove("web");
+    webJson(doc);
+}
+
+static void webPostConfig() {
+    if (!webAllowed()) return;
+    const String& body = web.arg("plain");
+    if (!body.length() || body.length() > 65536) { web.send(400, "text/plain", "settings must be 1 to 65536 bytes of JSON"); return; }
+    DynamicJsonDocument doc(65536);
+    if (deserializeJson(doc, body)) { web.send(400, "text/plain", "settings are not valid JSON"); return; }
+    keepSecret(doc, "mqtt", "pass", cfg.mqttPass);
+    keepSecret(doc, "web", "password", cfg.webPassword);
+    File file = LittleFS.open(UploadPath, "w");
+    if (!file) { web.send(500, "text/plain", "cannot write to flash"); return; }
+    serializeJson(doc, file);
+    file.close();
+    String error, warning;
+    if (!installUploadedConfig(error, warning)) { web.send(400, "text/plain", error); return; }
+    StaticJsonDocument<256> reply;
+    reply["type"] = "saved";
+    if (warning.length()) reply["warning"] = warning;
+    webJson(reply);
+    delay(300);
+    rp2040.reboot(); // start again with the new settings
+}
+
+// POST /api/update?size=<bytes>&md5=<hex> with the .bin as a multipart file: same Updater path as USB.
+static void webUpdateUpload() {
+    HTTPUpload& up = web.upload();
+    if (up.status == UPLOAD_FILE_START) {
+        updateError = "";
+        updateDone = false;
+        if (!cfg.webPassword[0] || !web.authenticate("admin", cfg.webPassword)) { updateError = "auth"; return; }
+        const long size = web.arg("size").toInt();
+        const String md5 = web.arg("md5");
+        if (size <= 0 || size > 1024L * 1024 || md5.length() != 32) { updateError = "size and md5 are required"; return; }
+        if (!Update.begin(size)) { updateError = "not enough free flash for the update"; return; }
+        Update.setMD5(md5.c_str());
+    } else if (up.status == UPLOAD_FILE_WRITE) {
+        rp2040.wdt_reset();
+        if (!updateError.length() && Update.write(up.buf, up.currentSize) != up.currentSize) updateError = "flash write failed";
+    } else if (up.status == UPLOAD_FILE_END) {
+        if (!updateError.length()) {
+            if (Update.end()) updateDone = true;
+            else updateError = "update rejected: MD5 mismatch or incomplete";
+        }
+    } else if (up.status == UPLOAD_FILE_ABORTED) {
+        updateError = "upload aborted";
+    }
+}
+
+static void webUpdateDone() {
+    if (updateError == "auth") { webAllowed(); return; } // answers 403 or asks for the password
+    if (!updateDone) {
+        Update.end();
+        LittleFS.remove("firmware.bin"); // free the space; the running firmware stays as it was
+        web.send(400, "text/plain", updateError.length() ? updateError : String("no firmware file received"));
+        return;
+    }
+    web.send(200, "application/json", "{\"type\":\"updated\"}");
+    delay(300);
+    rp2040.reboot(); // the boot stage installs the new firmware, then starts it
+}
+
+static void startWeb() {
+    for (const WebFile& f : webFiles) {
+        web.on(f.path, HTTP_GET, [&f] {
+            web.sendHeader("Content-Encoding", "gzip");
+            web.sendHeader("Cache-Control", "no-cache");
+            web.send_P(200, f.mime, reinterpret_cast<const char*>(f.gz), f.size);
+        });
+    }
+    web.on("/api/status", HTTP_GET, [] {
+        DynamicJsonDocument d(6144);
+        fillStatus(d);
+        d["webPassword"] = cfg.webPassword[0] != 0; // whether this page can change anything
+        webJson(d);
+    });
+    web.on("/api/login", HTTP_GET, [] { if (webAllowed()) web.send(200, "application/json", "{\"type\":\"login\"}"); });
+    web.on("/api/selftest", HTTP_GET, [] { DynamicJsonDocument d(1024); fillSelfTest(d); webJson(d); });
+    web.on("/api/config", HTTP_GET, webGetConfig);
+    web.on("/api/config", HTTP_POST, webPostConfig);
+    web.on("/api/update", HTTP_POST, webUpdateDone, webUpdateUpload);
+    web.on("/api/identify", HTTP_POST, [] {
+        if (!webAllowed()) return;
+        identifyUntil = millis() + 3000;
+        web.send(200, "application/json", "{\"type\":\"identify\"}");
+    });
+    web.on("/api/testoutputs", HTTP_POST, [] {
+        if (!webAllowed()) return;
+        outputTestStart = millis() | 1;
+        web.send(200, "application/json", "{\"type\":\"testoutputs\"}");
+    });
+    web.onNotFound([] { web.send(404, "text/plain", "not found"); });
+    web.begin();
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -508,6 +681,7 @@ void setup() {
     SPI.setSCK(PIN_W5500_SCK);
     ethernetStarted = ethernet.begin(hostname, cfg.network);
     if (!ethernetStarted) log("Ethernet start failed");
+    startWeb();
 
     if (cfg.modbusEnabled) modbus.begin(cfg.modbusPort, cfg.modbusUnit);
     if (cfg.mqttTls) {
@@ -541,6 +715,7 @@ void loop() {
     modbus.poll();
     serviceMqtt(now);
     serviceUsbCommands();
+    web.handleClient();
     if (int32_t(now - nextBlink) >= 0) { // blinking USR LED = loop alive, as on Cytron's firmware
         nextBlink = now + (int32_t(identifyUntil - now) > 0 ? 100 : 500);
         static bool led = false;
