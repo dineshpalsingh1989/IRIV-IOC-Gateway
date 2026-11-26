@@ -38,6 +38,7 @@ The USB setup protocol it uses (115200 baud, one line per command; replies are `
 | `IDENTIFY` | beeps and fast-blinks the USR LED for 3 s; replies `{"type":"identify"}` |
 | `TIME <unix UTC>` | sets the RTC and clears its lost flag; replies `{"type":"time","rtc":{...}}`. The installer sends this computer's time when the clock is lost or more than 2 s off. |
 | `CONFIG <bytes>` then exactly that many bytes of JSON | `{"type":"saved"}`, then a restart. The file is checked with the real loader before it replaces the old one. |
+| `UPDATE <bytes> <md5>` then exactly that many bytes of firmware `.bin` | `{"type":"updated"}`, then a restart that installs it (from 0.3.1). Arduino-Pico's Updater stores the image in LittleFS and checks the MD5; on a mismatch or short upload it replies an error and keeps the running firmware. The installer uses this for one-click updates. |
 | `REBOOT` / `BOOTLOADER` | restart / restart into install mode (RP2350 drive) |
 
 **With PlatformIO:**

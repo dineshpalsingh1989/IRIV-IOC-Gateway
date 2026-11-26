@@ -63,10 +63,14 @@ No tools to install. You need **Chrome or Edge on a computer** and a USB-C cable
 <p align="center"><img src="docs/screenshots/install.png" alt="Install page: 1 install the firmware, 2 send your settings, 3 check it's running" width="90%"></p>
 
 1. Open the **[web installer](https://dineshpalsingh1989.github.io/IRIV-IOC-Gateway/#install)** (set up your channels and connections first, on the other pages).
-2. **Install the firmware.** Click **Put in install mode** (or hold BOOT, tap RESET, release BOOT with a paperclip). If the gateway is already on the controller, it runs the hardware self-test first and asks before going on if anything fails. A drive called **RP2350** appears: click **Write firmware to the RP2350 drive** and pick it. The latest firmware comes with the page, so there is no file to download. The controller restarts, the installer reconnects by itself and the USB log shows the result:
+2. **Install the firmware.** Plug in USB-C and click **Check and install**, then pick the controller. The latest firmware comes with the page from GitHub, so there is nothing to download or upload.
+   - **Gateway 0.3.1 or newer on it:** the installer runs the hardware self-test (Ethernet chip, clock, flash, temperature), asks before going on if anything fails, then sends the new firmware straight over USB. The controller checks it (MD5), installs it and restarts. One click.
+   - **New, empty or other firmware:** it is put in install mode (or hold BOOT, tap RESET, release BOOT with a paperclip). A drive called **RP2350** appears: click **Write firmware to the RP2350 drive** and pick it.
+
+   Either way the installer reconnects by itself and the USB log shows the result:
 
    ```
-   ==== IRIV-IOC_886257 · IRIV IOC Gateway 0.3.0 is running ====
+   ==== IRIV-IOC_886257 · IRIV IOC Gateway 0.3.1 is running ====
    IP address : 192.168.0.206 (DHCP)
    Modbus TCP : port 502
    MQTT       : connected to 192.168.0.138 (TLS, broker checked)
@@ -187,6 +191,23 @@ docs/                            README images and screenshots
 **Tested on a real IRIV IOC** (26 Nov 2026, firmware 0.3.0): self-test, Modbus TCP, MQTT on 1883 and over TLS on 8883, outputs, buzzer and counters all passed. The scripts are in [firmware/tools/hardware_test](firmware/tools/hardware_test/README.md), so you can run the same checks on your unit; full results in the [session notes](docs/notes/2026-11-26-session.md).
 
 <p align="center"><img src="docs/images/hardware-test.svg" alt="Test results: USB self-test passed, Modbus TCP 17/17, MQTT 1883 29/29, MQTT 8883 with TLS 29/29 with the broker checked, sessions held, library tests pass; terminal output from the test scripts" width="100%"></p>
+
+### 📡 MQTT: tested on port 1883 and 8883
+
+| Connection | Result | Data |
+| --- | --- | --- |
+| **1883**, plain MQTT | ✅ 29/29 | flows both ways |
+| **8883**, TLS, no CA certificate (encrypted, broker not checked) | ✅ 29/29, twice | flows both ways |
+| **8883**, TLS, broker checked against its CA certificate | ✅ 29/29 | flows both ways |
+| **8883**, TLS, certificate from a different CA | ✅ refused, as it should be | nothing sent |
+
+"Flows both ways" means, on the real controller:
+
+- **Controller → broker:** all 18 topics arrived (DI0–DI10, DO0–DO3, AN0/AN1, buzzer) with real values, e.g. `an0/state = 0.02335`. Analog values every 2.0 s, on/off states when they change.
+- **Broker → controller:** `do0/set = 1` switched the real output on, the controller answered `do0/state = 1` and the Modbus coil agreed. Same for DO0–DO3 and the buzzer, and the other way round: a Modbus write showed up on MQTT.
+- **Staying connected:** 5 minutes on TLS with no reconnects and a value every 2 s.
+
+Tested against an amqtt broker on the LAN without a username. Mosquitto, EMQX, HiveMQ or cloud brokers speak the same MQTT 3.1.1 and TLS but are not tested yet. For TLS with a CA, the broker's certificate must list its address as a **DNS name**, even when that address is an IP.
 
 **Not yet tested on hardware:** real digital and analog signals (readings are uncalibrated), RS485 with a slave device, and the CR2032 holding the time through a power cut. Check those on the bench before connecting equipment. MQTT can run over TLS (port 8883); give the broker's CA certificate so the controller checks who it is talking to.
 

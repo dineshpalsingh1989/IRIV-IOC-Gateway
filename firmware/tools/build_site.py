@@ -16,8 +16,10 @@ import sys
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 UF2 = os.path.join(ROOT, "firmware", ".pio", "build", "cytron_iriv_io_controller", "firmware.uf2")
+BIN = os.path.join(os.path.dirname(UF2), "firmware.bin")  # for updates over USB (UPDATE command)
 SITE_FILES = ["index.html", "app.js", "install.js", "styles.css"]
 FIRMWARE_NAME = "iriv-ioc-gateway.uf2"
+UPDATE_NAME = "iriv-ioc-gateway.bin"
 
 
 def firmware_version():
@@ -84,6 +86,13 @@ def main():
         "size": len(data),
         "sha256": hashlib.sha256(data).hexdigest(),
     }
+    with open(BIN, "rb") as f:
+        image = f.read()
+    with open(os.path.join(out, "firmware", UPDATE_NAME), "wb") as f:
+        f.write(image)
+    # The installer sends this over USB to a running gateway (0.3.1+); the controller checks the MD5.
+    build["update"] = {"file": UPDATE_NAME, "size": len(image), "sha256": hashlib.sha256(image).hexdigest(),
+                       "md5": hashlib.md5(image).hexdigest()}
     manifest = {
         "product": "iriv-ioc-gateway",
         "version": firmware_version(),

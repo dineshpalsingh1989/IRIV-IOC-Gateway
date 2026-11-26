@@ -350,11 +350,11 @@
             <div class="step-head"><span class="step-num">1</span><div><h2>Install the firmware</h2><p id="inst-fw-info">Looking for the latest firmware…</p></div></div>
             <div class="step-body">
               <div class="step-text">
-                <p><b>Put the controller in install mode.</b> If it already runs this gateway (or any Arduino firmware), click the button. When the gateway is on it, the installer checks the hardware first and asks before going on if it finds a problem. Otherwise do it by hand: hold <b>BOOT</b>, press and release <b>RESET</b>, then release BOOT. Both are pinholes on the front: use a paperclip. A new or empty controller is already in install mode when you plug it in: it shows up as the RP2350 drive, not as a USB port.</p>
+                <p><b>Connect the controller with USB-C and click Check and install.</b> When the gateway is on it, the installer runs the hardware self-test first and asks before going on if it finds a problem. From version 0.3.1 the new firmware then goes straight over USB: nothing to download or pick, and the controller restarts by itself. Older or other firmware is put in install mode instead (or do it by hand: hold <b>BOOT</b>, press and release <b>RESET</b>, then release BOOT; both are pinholes on the front, use a paperclip). A new or empty controller is already in install mode when you plug it in: it shows up as the RP2350 drive, not as a USB port.</p>
                 <div class="btn-row">
-                  <button type="button" class="button button-secondary" id="inst-bootloader"><svg class="i" aria-hidden="true"><use href="#i-usb"/></svg>Put in install mode</button>
+                  <button type="button" class="button button-secondary" id="inst-bootloader"><svg class="i" aria-hidden="true"><use href="#i-usb"/></svg>Check and install</button>
                 </div>
-                <p>A drive called <b>RP2350</b> appears. Copy the firmware onto it: the controller restarts by itself when the copy finishes, the installer reconnects and the USB log in step 3 shows its IP address.</p>
+                <p>Only in install mode: a drive called <b>RP2350</b> appears. Copy the firmware onto it: the controller restarts by itself when the copy finishes, the installer reconnects and the USB log in step 3 shows its IP address.</p>
                 <div class="btn-row">
                   <button type="button" class="button button-dark" id="inst-write"><svg class="i" aria-hidden="true"><use href="#i-download"/></svg>Write firmware to the RP2350 drive</button>
                   <a class="button button-secondary" id="inst-download" href="firmware/iriv-ioc-gateway.uf2" download><svg class="i" aria-hidden="true"><use href="#i-download"/></svg>Download .uf2</a>

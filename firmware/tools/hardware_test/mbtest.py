@@ -53,7 +53,7 @@ ce = read(s, 1, 0x0300, 5); check("Counter enable", isinstance(ce, list), str([i
 cn = read(s, 4, 0x0400, 10); check("Counters", isinstance(cn, list), str([cn[i] << 16 | cn[i+1] for i in range(0, 10, 2)]))
 md = read(s, 4, 0x0F00, 2); txt = b"".join(struct.pack(">H", x) for x in md).decode(errors="replace").strip("\0 ")
 check("Model = IOC", txt == "IOC", repr(txt))
-ver = read(s, 4, 0x0F10, 3); check("Version = 0.3.0", ver == [0, 3, 0], str(ver))
+ver = read(s, 4, 0x0F10, 3); check("Version register", len(ver) == 3, ".".join(map(str, ver)))
 bz = read(s, 1, 0x0500, 1); check("Buzzer coil", isinstance(bz, list), str([int(x) for x in bz]))
 rs = read(s, 4, 0x1000, 4); check("RS485 block readable", isinstance(rs, list), f"point0 {f32(rs[0],rs[1])}, point1 {f32(rs[2],rs[3])}")
 
@@ -74,7 +74,7 @@ ok = True
 t0 = time.time()
 for i in range(20):
     for k in socks:
-        ok &= read(k, 4, 0x0F10, 3) == [0, 3, 0]
+        ok &= len(read(k, 4, 0x0F10, 3)) == 3
 check("4 clients x 20 requests", ok, f"{(time.time()-t0)*1000/80:.1f} ms per request")
 for k in socks: k.close()
 

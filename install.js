@@ -1,5 +1,6 @@
 // Browser installer for the IRIV IOC gateway (Install page).
-// Firmware: put the RP2350 in install mode, then write the .uf2 onto its USB drive.
+// Firmware: a running gateway 0.3.1+ gets the .bin over USB (UPDATE command). Anything else: put the RP2350
+// in install mode, then write the .uf2 onto its USB drive.
 // Settings: send ioc_config.json over USB (Web Serial) using the firmware's line protocol:
 //   HELLO | STATUS | CONFIG <bytes> + JSON | TIME <unix> | REBOOT | BOOTLOADER  ->  "@IOC {json}" replies.
 // Uses app.js globals: $, icon, escapeHtml, toast, config, points, buildConfigFile, num.
@@ -297,8 +298,19 @@ async function enterInstallMode() {
     await runChecks(tryLink).catch(e => logLine(`Controller check failed: ${e.message}`));
     const problems = checkProblems();
     logLine(`Self-test before install: ${!check?.result ? 'not available on this firmware' : problems.length ? `problems: ${problems.join(', ')}` : 'no problems found'}`);
-    if (problems.length && !confirm(`The controller check found problems: ${problems.join(', ')}.\n\nPut it in install mode anyway?`)) {
+    if (problems.length && !confirm(`The controller check found problems: ${problems.join(', ')}.\n\nInstall anyway?`)) {
       await tryLink.close();
+      return;
+    }
+    // Gateway 0.3.1+ takes the published firmware straight over USB: no install mode, no drive to pick.
+    const update = buildFor((detected.hello.chip || '').replace(/[AB]$/, ''))?.update;
+    if (update && !customFile && cmpVersion(detected.hello.version, '0.3.1') >= 0) {
+      if (cmpVersion(detected.hello.version, manifest.version) >= 0 && !confirm(`This controller already runs ${detected.hello.version}. Install ${manifest.version} again?`)) {
+        await tryLink.close();
+        return;
+      }
+      try { await updateOverUsb(tryLink, update); } finally { await tryLink.close(); }
+      if (!(await reconnect(port))) toast('Firmware installed. Click Connect over USB (step 2) to check it');
       return;
     }
     await tryLink.send('BOOTLOADER');
@@ -311,6 +323,21 @@ async function enterInstallMode() {
     await port.close().catch(() => {});
   }
   toast('Install mode: a drive called RP2350 should appear in a few seconds');
+}
+
+// Downloads the published .bin, checks it against the manifest and sends it to a running gateway (0.3.1+),
+// which checks the MD5 again before installing it on restart.
+async function updateOverUsb(l, update) {
+  const response = await fetch(FIRMWARE_DIR + update.file);
+  if (!response.ok) throw new Error(`Could not download the firmware (${response.status})`);
+  const bytes = new Uint8Array(await response.arrayBuffer());
+  const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', bytes));
+  const sha256 = [...digest].map(b => b.toString(16).padStart(2, '0')).join('');
+  if (bytes.length !== update.size || sha256 !== update.sha256) throw new Error('The downloaded firmware does not match its description. Nothing was written.');
+  logLine(`Installing firmware ${manifest.version} over USB (${kb(bytes.length)}). Keep the cable in…`);
+  toast(`Installing firmware ${manifest.version}… keep the cable in`);
+  await l.request(`UPDATE ${bytes.length} ${update.md5}`, ['updated'], 120000, bytes);
+  logLine('Firmware received and checked. The controller restarts and installs it…');
 }
 
 async function writeFirmware() {
@@ -401,7 +428,7 @@ async function syncClock(hello) {
 async function reconnect(port) {
   if (!hasSerial) return false;
   setDevice('Restarting…', false);
-  for (let attempt = 0; attempt < 16; attempt++) {
+  for (let attempt = 0; attempt < 24; attempt++) { // an update takes longer: the new firmware is copied first
     await wait(1500);
     const known = await navigator.serial.getPorts();
     for (const p of [port, ...known.filter(k => k !== port)].filter(Boolean)) {

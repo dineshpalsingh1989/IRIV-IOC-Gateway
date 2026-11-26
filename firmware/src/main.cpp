@@ -8,6 +8,7 @@
 #include <SPI.h>
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
+#include <Updater.h>
 #include <pico/mutex.h>
 #include <pico/unique_id.h>
 #include <hardware/structs/sysinfo.h>
@@ -397,8 +398,41 @@ static void receiveConfig(long size) {
     rp2040.reboot(); // start again with the new settings
 }
 
+// Firmware update over USB: "UPDATE <bytes> <md5>" then the .bin. Arduino-Pico's Updater stores it in
+// LittleFS and checks the MD5; its boot stage copies it into place on the next start.
+static void receiveFirmware(long size, const char* md5) {
+    if (size <= 0 || size > 1024L * 1024 || strlen(md5) != 32) { replyError("usage: UPDATE <bytes> <md5>"); return; }
+    if (!Update.begin(size)) { replyError("not enough free flash for the update"); return; }
+    Update.setMD5(md5);
+    uint8_t buffer[512];
+    long received = 0;
+    uint32_t lastByte = millis();
+    while (received < size && millis() - lastByte < 5000) {
+        rp2040.wdt_reset();
+        const int available = Serial.available();
+        if (available <= 0) { delay(1); continue; }
+        const size_t want = size_t(min(long(sizeof(buffer)), min(long(available), size - received)));
+        const size_t got = Serial.readBytes(reinterpret_cast<char*>(buffer), want);
+        if (Update.write(buffer, got) != got) break;
+        received += long(got);
+        lastByte = millis();
+    }
+    if (received != size || !Update.end()) {
+        LittleFS.remove("firmware.bin"); // free the space; the running firmware stays as it was
+        replyError(received != size ? "update incomplete" : "update rejected: MD5 mismatch or flash error");
+        return;
+    }
+    StaticJsonDocument<64> d;
+    d["type"] = "updated";
+    d["bytes"] = size;
+    replyJson(d);
+    Serial.flush();
+    delay(300);
+    rp2040.reboot(); // the boot stage installs the new firmware, then starts it
+}
+
 static void serviceUsbCommands() {
-    static char line[40];
+    static char line[64];
     static size_t used = 0;
     while (Serial.available()) {
         const int c = Serial.read();
@@ -414,6 +448,11 @@ static void serviceUsbCommands() {
         else if (!strcmp(line, "SELFTEST")) sendSelfTest();
         else if (!strcmp(line, "IDENTIFY")) { identifyUntil = millis() + 3000; StaticJsonDocument<64> d; d["type"] = "identify"; replyJson(d); }
         else if (!strncmp(line, "CONFIG ", 7)) receiveConfig(atol(line + 7));
+        else if (!strncmp(line, "UPDATE ", 7)) {
+            char* md5 = nullptr;
+            const long size = strtol(line + 7, &md5, 10);
+            receiveFirmware(size, md5 && *md5 == ' ' ? md5 + 1 : "");
+        }
         else if (!strncmp(line, "TIME ", 5)) setClock(strtoul(line + 5, nullptr, 10));
         else if (!strcmp(line, "REBOOT")) { Serial.flush(); delay(100); rp2040.reboot(); }
         else if (!strcmp(line, "BOOTLOADER")) { Serial.flush(); delay(100); rp2040.rebootToBootloader(); }
