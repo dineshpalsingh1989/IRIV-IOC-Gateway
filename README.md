@@ -219,6 +219,11 @@ readable — so the real takeaway is almost always **keep this device on a trust
 expose it to the internet**. Python standard library only; `python security-audit/selftest.py` runs it against a
 mock controller and is part of CI.
 
+**We run this audit on the gateway.** A unit on firmware 0.3.2 reported only the expected by-design findings
+(Modbus has no login; the page is plain HTTP and readable) and nothing worse: the write endpoints correctly
+refused unauthenticated requests and passwords were not leaked. The posture, the hardening checklist and a viewer
+for your own report are on the **[Security page](https://dineshpalsingh1989.github.io/IRIV-IOC-Gateway/security.html)**.
+
 > Only run it against equipment you own or are authorised to test.
 
 ## 🚧 Status

@@ -17,7 +17,7 @@ import sys
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 UF2 = os.path.join(ROOT, "firmware", ".pio", "build", "cytron_iriv_io_controller", "firmware.uf2")
 BIN = os.path.join(os.path.dirname(UF2), "firmware.bin")  # for updates over USB (UPDATE command)
-SITE_FILES = ["index.html", "app.js", "install.js", "styles.css"]
+SITE_FILES = ["index.html", "app.js", "install.js", "styles.css", "security.html"]
 FIRMWARE_NAME = "iriv-ioc-gateway.uf2"
 UPDATE_NAME = "iriv-ioc-gateway.bin"
 
