@@ -281,10 +281,26 @@ async function firmwareFor(chip) {
   return { name: build.file, bytes };
 }
 
+// One click on Install, decided by what is on the controller:
+// - our gateway, older version: update straight away; the full check runs after the update
+// - our gateway, up to date: nothing to install; check the hardware and show the report
+// - other firmware: ask before deleting it, then install mode and the drive
+// - new or empty: it has no USB port yet, only the RP2350 drive: point to Write firmware
+// After every install the installer reconnects, runs the full check and logs the result.
 async function enterInstallMode() {
-  const port = link ? link.port : await choosePort();
+  let port;
+  try { port = link ? link.port : await choosePort(); }
+  catch (e) {
+    if (e.name === 'NotFoundError') { // picker closed: maybe a new controller, which shows up as a drive
+      openLog();
+      logLine('No controller picked. A new or empty controller has no USB port yet: it shows up as a drive called RP2350.');
+      logLine('If you see that drive, click "Write firmware to the RP2350 drive" and pick it.');
+      $('#inst-other').open = true;
+    }
+    throw e;
+  }
   openLog();
-  logLine(`==== Install ${manifest?.version || ''}: checking the controller ====`);
+  logLine(`==== Install ${manifest?.version || ''}: looking at the controller ====`);
   if (link) await disconnect(); // reopened below
   detected.usb = usbInfo(port);
   renderDetected();
@@ -292,7 +308,6 @@ async function enterInstallMode() {
   if (detected.usb && !detected.usb.rp) {
     throw new Error(`That port is a ${detected.usb.name}, not an IRIV IO Controller (RP2350). Pick the controller's port.`);
   }
-  // Ask our gateway first; any Arduino-Pico firmware also reboots on a 1200-baud open and close.
   const tryLink = new IocLink(port);
   let gateway = false;
   try {
@@ -300,46 +315,60 @@ async function enterInstallMode() {
     detected.hello = await tryLink.request('HELLO', ['hello'], 1500);
     gateway = true;
   } catch { /* not our gateway */ }
+
   if (gateway) {
     renderDetected();
     renderVersion();
-    // Check the hardware before replacing the firmware.
-    await runChecks(tryLink).catch(e => logLine(`Controller check failed: ${e.message}`));
-    if (check?.result) for (const [name, text, state] of checkRows(check.result)) if (state !== 'info') logLine(`  ${state === 'ok' ? 'OK ' : 'BAD'} ${name}: ${text.replace(/<[^>]+>/g, '')}`);
-    const problems = checkProblems();
-    logLine(`Self-test before install: ${!check?.result ? 'not available on this firmware' : problems.length ? `problems: ${problems.join(', ')}` : 'no problems found'}`);
-    if (problems.length && !confirm(`The controller check found problems: ${problems.join(', ')}.\n\nInstall anyway?`)) {
+    const installed = detected.hello.version, latest = manifest?.version;
+    if (!customFile && latest && cmpVersion(installed, latest) >= 0) {
+      logLine(`Installed: IRIV IOC Gateway ${installed}, up to date. Nothing to install: checking the hardware.`);
       await tryLink.close();
+      await connect(port);
+      logCheck();
+      await reportRunning();
       return;
     }
+    logLine(customFile ? `Installed: IRIV IOC Gateway ${installed}. Installing your file.` : `Installed: IRIV IOC Gateway ${installed}. Updating to ${latest}; the full check runs after the update.`);
     // Gateway 0.3.1+ takes the published firmware straight over USB: no install mode, no drive to pick.
     const update = buildFor((detected.hello.chip || '').replace(/[AB]$/, ''))?.update;
-    if (update && !customFile && cmpVersion(detected.hello.version, '0.3.1') >= 0) {
-      if (cmpVersion(detected.hello.version, manifest.version) >= 0 && !confirm(`This controller already runs ${detected.hello.version}. Install ${manifest.version} again?`)) {
-        logLine(`Already up to date (${detected.hello.version}): nothing installed`);
-        await tryLink.close();
-        await connect(port);
-        await reportRunning();
-        return;
-      }
+    if (update && !customFile && cmpVersion(installed, '0.3.1') >= 0) {
       try { await updateOverUsb(tryLink, update); } finally { await tryLink.close(); }
       if (!(await reconnect(port))) toast('Firmware installed. Click Connect over USB (step 2) to check it');
       return;
     }
-    await tryLink.send('BOOTLOADER');
+    await tryLink.send('BOOTLOADER'); // 0.3.0 and older have no USB update: once more through the drive
     await wait(200);
     await tryLink.close();
   } else {
+    const other = /CircuitPython/i.test(tryLink.seen) ? 'CircuitPython' : /MicroPython/i.test(tryLink.seen) ? 'MicroPython' : 'other firmware (for example the factory firmware)';
     await tryLink.close();
+    detected.other = other;
+    renderDetected();
+    logLine(`Installed: ${other}, not the IRIV IOC Gateway.`);
+    if (!confirm(`This controller runs ${other}, not the IRIV IOC Gateway.\n\nInstalling the gateway deletes it. Delete it and install?`)) {
+      logLine('Cancelled: the other firmware was kept.');
+      return;
+    }
+    logLine(`Replacing ${other}.`);
+    // Any Arduino-Pico firmware reboots into install mode on a 1200-baud open and close.
     await port.open({ baudRate: 1200 });
     await port.setSignals({ dataTerminalReady: false }).catch(() => {});
     await port.close().catch(() => {});
   }
-  logLine('This controller needs install mode once: a drive called RP2350 appears in a few seconds.');
-  logLine('Click "Write firmware to the RP2350 drive" and pick it. The browser needs that one click to write to a drive.');
+  logLine('Install mode: a drive called RP2350 appears in a few seconds.');
+  logLine('Click "Write firmware to the RP2350 drive" and pick it (the browser needs that one click to write to a drive).');
   $('#inst-other').open = true;
   $('#inst-write').scrollIntoView({ behavior: 'smooth', block: 'center' });
   toast('Install mode: pick the RP2350 drive with Write firmware');
+}
+
+// Logs every judged line of the controller check (the live digital inputs and notes stay on screen only).
+function logCheck() {
+  if (!check?.result) return;
+  logLine('Controller check:');
+  for (const [name, text, state] of checkRows(check.result)) {
+    if (state !== 'info') logLine(`  ${state === 'ok' ? 'OK ' : 'BAD'} ${name}: ${text.replace(/<[^>]+>/g, '')}`);
+  }
 }
 
 // Downloads the published .bin, checks it against the manifest and sends it to a running gateway (0.3.1+),
@@ -378,7 +407,10 @@ async function writeFirmware() {
   } catch { /* the bootloader restarts as soon as it has every block, which can cut the drive off mid-close */ }
   toast('Firmware copied. The controller is restarting: reconnecting…');
   logLine(`Firmware ${firmware.name} copied (${kb(firmware.bytes.length)}). Waiting for the controller to restart…`);
-  if (!(await reconnect())) toast('Firmware installed. Click Connect over USB (step 2) to check it');
+  if (!(await reconnect())) {
+    logLine('Installed. Click Connect over USB (step 2) and pick the controller: the full check then runs.');
+    toast('Firmware installed. Click Connect over USB (step 2) to check it');
+  }
 }
 
 // ---------- settings ----------
@@ -451,7 +483,7 @@ async function reconnect(port) {
     await wait(1500);
     const known = await navigator.serial.getPorts();
     for (const p of [port, ...known.filter(k => k !== port)].filter(Boolean)) {
-      try { await connect(p); await reportRunning(); return true; } catch { await disconnect(); }
+      try { await connect(p); logCheck(); await reportRunning(); return true; } catch { await disconnect(); }
     }
   }
   setDevice('Not connected', false);
@@ -597,7 +629,7 @@ function guard(button, action) {
 $('#inst-browser').hidden = hasSerial && hasDirectoryPicker;
 guard('#inst-bootloader', enterInstallMode);
 guard('#inst-write', writeFirmware);
-guard('#inst-connect', async () => connect(await choosePort()));
+guard('#inst-connect', async () => { await connect(await choosePort()); logCheck(); });
 guard('#inst-send', sendSettings);
 guard('#inst-identify', async () => {
   if (onDevice()) { await webAction('api/identify'); return; }

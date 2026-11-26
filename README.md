@@ -63,12 +63,17 @@ No tools to install. You need **Chrome or Edge on a computer** and a USB-C cable
 <p align="center"><img src="docs/screenshots/install.png" alt="Install page: 1 install the firmware, 2 send your settings, 3 check it's running" width="90%"></p>
 
 1. Open the **[web installer](https://dineshpalsingh1989.github.io/IRIV-IOC-Gateway/#install)** (set up your channels and connections first, on the other pages).
-2. **Install the firmware: one click.** Plug in USB-C, click **Install** and pick the controller. The newest firmware comes with the page from GitHub, so there is nothing to download. The installer:
-   - checks the controller (Ethernet chip, clock, flash, temperature) and asks before going on if anything fails,
-   - sends the firmware straight over USB (controllers on 0.3.1 or newer); the controller checks it (MD5), installs it and restarts,
-   - reconnects, waits for the IP address and opens the **install log** with the result.
+2. **Install the firmware: one click.** Plug in USB-C, click **Install** and pick the controller. The newest firmware comes with the page from GitHub, so there is nothing to download. The installer looks at what is on the controller:
 
-   A new, empty or older controller needs install mode once: the installer puts it there, opens **New controller, or install by hand** and you click **Write firmware to the RP2350 drive** and pick the drive (browsers need that one click to write to a drive).
+   | On the controller | What Install does |
+   | --- | --- |
+   | **Older gateway** (0.3.1 or newer) | Updates straight over USB, no questions; the controller checks the file (MD5) and restarts |
+   | **Older gateway** (0.3.0 or older) | Puts it in install mode; you pick the RP2350 drive once |
+   | **Up-to-date gateway** | Installs nothing; checks the hardware and shows the report |
+   | **Other firmware** (factory, CircuitPython, MicroPython…) | Asks before deleting it, then install mode; you pick the RP2350 drive |
+   | **New or empty** | It shows up as a drive called RP2350, not a USB port: click **Write firmware to the RP2350 drive** and pick it |
+
+   After every install the installer reconnects, runs the full check (Ethernet chip, clock, flash, temperature) and writes the result to the **install log**. Browsers need you to pick the drive yourself, so the drive cases take that one extra click.
 
    The install log ends with:
 

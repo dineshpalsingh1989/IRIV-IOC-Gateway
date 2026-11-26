@@ -372,7 +372,7 @@
             <div class="step-head"><span class="step-num">1</span><div><h2>Install the firmware</h2><p id="inst-fw-info">Looking for the latest firmware…</p></div></div>
             <div class="step-body single">
               <div class="step-text">
-                <p><b>Plug in USB-C and click Install.</b> One click does it all: it checks the controller (Ethernet chip, clock, flash, temperature), installs this firmware, waits for it to restart and shows the result, with the IP address, in the log below. Nothing to download.</p>
+                <p><b>Plug in USB-C and click Install.</b> It looks at what is on the controller and does the right thing: an <b>older gateway</b> is updated straight away; an <b>up-to-date</b> one is only checked; <b>other firmware</b> is replaced after you agree; a <b>new or empty</b> controller shows up as a drive called RP2350 (see below). After every install it reconnects, runs the full check (Ethernet chip, clock, flash, temperature) and shows the result, with the IP address, in the log. Nothing to download.</p>
                 <div class="btn-row">
                   <button type="button" class="button button-dark" id="inst-bootloader"><svg class="i" aria-hidden="true"><use href="#i-usb"/></svg>Install</button>
                 </div>
