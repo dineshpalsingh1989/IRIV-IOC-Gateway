@@ -38,6 +38,10 @@ jobs:
       - name: Dashboard syntax
         run: node --check app.js && node --check install.js
 
+      - name: Security auditor self-check
+        run: python selftest.py
+        working-directory: security-audit
+
       - name: Build firmware for the IRIV IO Controller
         run: |
           pip install platformio
